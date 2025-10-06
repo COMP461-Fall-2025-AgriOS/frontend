@@ -3,6 +3,7 @@ import { robotColumns } from "@/components/robots/robot-columns";
 import type { Robot } from "@/components/robots/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import AddRobots from "@/components/robots/add-robots";
+import AddMap from "@/components/maps/add-map";
 
 const mockRobots: Robot[] = [
   {
@@ -47,6 +48,16 @@ export default function Home() {
   return (
     <div className="px-4 py-6 md:px-6">
       <div className="grid grid-cols-1 gap-6">
+        {/* Map adder */}
+        <Card className="max-w-3xl">
+          <CardHeader>
+            <CardTitle className="text-lg">Add map</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AddMap></AddMap>
+          </CardContent>
+        </Card>
+
         {/* Robot adder */}
         <Card className="max-w-3xl">
           <CardHeader>

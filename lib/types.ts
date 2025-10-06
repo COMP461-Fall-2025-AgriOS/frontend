@@ -15,5 +15,3 @@ export interface Robot {
   type: RobotType
   attributes: RobotAttributes
 }
-
-

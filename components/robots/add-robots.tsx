@@ -9,7 +9,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { ROBOT_TYPES, RobotType } from "./types";
+import {
+  ROBOT_TYPES,
+  RobotType,
+  RobotAttributes,
+  ATTRIBUTE_FIELDS,
+} from "./types";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -28,13 +33,39 @@ interface Props {
  * @returns A form component with robot type selection and quantity, autonomy, and speed inputs
  */
 export default function AddRobots({ maxRobots = 100 }: Props) {
+  // TODO: add Map select
   const [robotType, setRobotType] = useState<RobotType>();
   const [numRobots, setNumRobots] = useState<number>();
-  const [autonomy, setAutonomy] = useState<number>();
-  const [speed, setSpeed] = useState<number>();
+  const [attributes, setAttributes] = useState<Partial<RobotAttributes>>({});
+
+  const handleAttributeChange = (key: keyof RobotAttributes, value: number) => {
+    setAttributes((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!robotType || !numRobots) {
+      console.log("Please fill in all required fields");
+      return;
+    }
+
+    const robotData = {
+      type: robotType,
+      quantity: numRobots,
+      attributes: attributes,
+    };
+
+    // TODO: call the server
+    console.log("Robots to add:", robotData);
+    console.log(
+      `Adding ${numRobots} ${robotType}(s) with attributes:`,
+      attributes
+    );
+  };
 
   return (
-    <form className="space-y-4">
+    <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="flex gap-4">
         <div className="flex-1 space-y-2">
           <Label htmlFor="robot-type">Robot type</Label>
@@ -72,31 +103,27 @@ export default function AddRobots({ maxRobots = 100 }: Props) {
       </div>
 
       <div className="flex gap-4">
-        <div className="flex-1 space-y-2">
-          <Label htmlFor="robot-autonomy">Autonomy (miles)</Label>
-          <Input
-            id="robot-autonomy"
-            type="number"
-            step="0.1"
-            placeholder="Enter autonomy in miles"
-            min="0"
-            value={autonomy || ""}
-            onChange={(e) => setAutonomy(Number(e.target.value))}
-          />
-        </div>
-
-        <div className="flex-1 space-y-2">
-          <Label htmlFor="robot-speed">Speed (mph)</Label>
-          <Input
-            id="robot-speed"
-            type="number"
-            step="0.1"
-            placeholder="Enter speed in mph"
-            min="0"
-            value={speed || ""}
-            onChange={(e) => setSpeed(Number(e.target.value))}
-          />
-        </div>
+        {Object.entries(ATTRIBUTE_FIELDS).map(([key, config]) => (
+          <div key={key} className="flex-1 space-y-2">
+            <Label htmlFor={`robot-${key}`}>
+              {config.label} ({config.unit})
+            </Label>
+            <Input
+              id={`robot-${key}`}
+              type="number"
+              step={config.step}
+              placeholder={config.placeholder}
+              min={config.min}
+              value={attributes[key as keyof RobotAttributes] || ""}
+              onChange={(e) =>
+                handleAttributeChange(
+                  key as keyof RobotAttributes,
+                  Number(e.target.value)
+                )
+              }
+            />
+          </div>
+        ))}
       </div>
 
       <Button type="submit" className="w-full">

@@ -4,6 +4,9 @@ import type { Robot } from "@/components/robots/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import AddRobots from "@/components/robots/add-robots";
 import AddMap from "@/components/maps/add-map";
+import { MapsTable } from "@/components/maps/maps-table";
+import { mapsColumns } from "@/components/maps/maps-columns";
+import type { Map as MapType } from "@/components/maps/types";
 
 const mockRobots: Robot[] = [
   {
@@ -44,22 +47,18 @@ const mockRobots: Robot[] = [
   },
 ];
 
+const mockMaps: MapType[] = [
+  { id: "m-001", name: "field-a", width: 200, height: 120 },
+  { id: "m-002", name: "field-b", width: 150, height: 150 },
+  { id: "m-003", name: "orchard-1", width: 100, height: 300 },
+];
+
 export default function Home() {
   return (
     <div className="px-4 py-6 md:px-6">
-      <div className="grid grid-cols-1 gap-6">
-        {/* Map adder */}
-        <Card className="max-w-3xl">
-          <CardHeader>
-            <CardTitle className="text-lg">Add map</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <AddMap></AddMap>
-          </CardContent>
-        </Card>
-
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Robot adder */}
-        <Card className="max-w-3xl">
+        <Card className="w-full">
           <CardHeader>
             <CardTitle className="text-lg">Add robots</CardTitle>
           </CardHeader>
@@ -68,13 +67,33 @@ export default function Home() {
           </CardContent>
         </Card>
 
+        {/* Map adder */}
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="text-lg">Add map</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AddMap></AddMap>
+          </CardContent>
+        </Card>
+
         {/* Current robots list */}
-        <Card className="max-w-3xl">
+        <Card className="w-full">
           <CardHeader>
             <CardTitle className="text-lg">Robots</CardTitle>
           </CardHeader>
           <CardContent className="text-sm">
             <RobotTable columns={robotColumns} data={mockRobots} />
+          </CardContent>
+        </Card>
+
+        {/* Current maps list */}
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="text-lg">Maps</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm">
+            <MapsTable columns={mapsColumns} data={mockMaps} />
           </CardContent>
         </Card>
       </div>

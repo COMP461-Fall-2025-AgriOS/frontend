@@ -19,6 +19,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { useState } from "react";
+import { addRobots } from "@/app/robots/actions";
 
 interface Props {
   maxRobots?: number;
@@ -36,7 +37,10 @@ export default function AddRobots({ maxRobots = 100 }: Props) {
   // TODO: add Map select
   const [robotType, setRobotType] = useState<RobotType>();
   const [numRobots, setNumRobots] = useState<number>();
-  const [attributes, setAttributes] = useState<Partial<RobotAttributes>>({});
+  const [attributes, setAttributes] = useState<RobotAttributes>({
+    autonomy: 0,
+    speed: 0,
+  });
 
   const handleAttributeChange = (key: keyof RobotAttributes, value: number) => {
     setAttributes((prev) => ({ ...prev, [key]: value }));
@@ -45,8 +49,13 @@ export default function AddRobots({ maxRobots = 100 }: Props) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!robotType || !numRobots) {
-      console.log("Please fill in all required fields");
+    if (
+      !robotType ||
+      !numRobots ||
+      attributes.autonomy <= 0 ||
+      attributes.speed <= 0
+    ) {
+      console.log("Please fill in all required fields with valid values");
       return;
     }
 
@@ -56,12 +65,13 @@ export default function AddRobots({ maxRobots = 100 }: Props) {
       attributes: attributes,
     };
 
-    // TODO: call the server
     console.log("Robots to add:", robotData);
     console.log(
       `Adding ${numRobots} ${robotType}(s) with attributes:`,
       attributes
     );
+
+    addRobots(robotType, numRobots, attributes);
   };
 
   return (
@@ -114,7 +124,7 @@ export default function AddRobots({ maxRobots = 100 }: Props) {
               step={config.step}
               placeholder={config.placeholder}
               min={config.min}
-              value={attributes[key as keyof RobotAttributes] || ""}
+              value={attributes[key as keyof RobotAttributes]}
               onChange={(e) =>
                 handleAttributeChange(
                   key as keyof RobotAttributes,

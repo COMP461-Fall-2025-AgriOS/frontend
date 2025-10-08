@@ -1,6 +1,19 @@
 import { Map } from "@/components/maps/types";
 import { revalidatePath } from "next/cache";
 
+/**
+ * Adds a new map to the system with the specified properties.
+ *
+ * @param map - The map object containing all required properties
+ * @param map.id - The unique identifier for the map
+ * @param map.name - The display name of the map
+ * @param map.width - The width of the map in units
+ * @param map.height - The height of the map in units
+ *
+ * @throws {Error} Throws an error if the API request fails or returns a non-ok response
+ *
+ * @returns Promise<void> - Resolves when the map is successfully created and cache is revalidated
+ */
 export async function addMap({ id, name, width, height }: Map) {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/map/${id}`,

@@ -6,6 +6,7 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { useState } from "react";
 import { v4 as uuidv4 } from "uuid";
+import { addMap } from "@/app/maps/actions";
 
 interface Props {
   maxWidth?: number;
@@ -28,7 +29,7 @@ export default function AddMap({ maxWidth = 1000, maxHeight = 1000 }: Props) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!name.trim() || !width || !height) {
       return;
     }
@@ -40,8 +41,9 @@ export default function AddMap({ maxWidth = 1000, maxHeight = 1000 }: Props) {
       height,
     };
 
-    // TODO: Handle map submission (e.g., send to API)
     console.log("Map to add:", mapData);
+
+    addMap(mapData);
   };
 
   return (
@@ -57,7 +59,7 @@ export default function AddMap({ maxWidth = 1000, maxHeight = 1000 }: Props) {
           required
         />
       </div>
-      
+
       <div className="flex gap-4">
         <div className="flex-1 space-y-2">
           <Label htmlFor="map-width">Width (m)</Label>

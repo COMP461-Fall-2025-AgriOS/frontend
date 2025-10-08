@@ -1,6 +1,6 @@
 "use server";
 
-import { RobotType } from "@/lib/types";
+import { RobotType, RobotAttributes } from "@/lib/types";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -12,8 +12,7 @@ import { revalidatePath } from "next/cache";
  *
  * @param type - The type of robot to create
  * @param quantity - The number of robots to create
- * @param autonomy - The autonomous range of the robots in miles
- * @param speed - The maximum speed of the robots in miles per hour
+ * @param attributes - The robot attributes containing autonomy and speed
  *
  * @throws {Error} Throws an error if the API request fails or returns a non-ok response
  *
@@ -22,8 +21,7 @@ import { revalidatePath } from "next/cache";
 export async function addRobots(
   type: RobotType,
   quantity: number,
-  autonomy: number,
-  speed: number
+  attributes: RobotAttributes
 ) {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/robots`,
@@ -32,8 +30,7 @@ export async function addRobots(
       body: JSON.stringify({
         type: type,
         quantity: quantity,
-        autonomy: autonomy,
-        speed: speed,
+        attributes: attributes,
       }),
     }
   );

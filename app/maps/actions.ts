@@ -1,3 +1,5 @@
+"use server";
+
 import { Map } from "@/components/maps/types";
 import { revalidatePath } from "next/cache";
 

@@ -24,21 +24,27 @@ interface Props {
  */
 export default function AddMap({ maxWidth = 1000, maxHeight = 1000 }: Props) {
   const [name, setName] = useState<string>("");
-  const [width, setWidth] = useState<number>();
-  const [height, setHeight] = useState<number>();
+  const [width, setWidth] = useState<string>("");
+  const [height, setHeight] = useState<string>("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!name.trim() || !width || !height) {
+    if (
+      !name.trim() ||
+      !width ||
+      !height ||
+      Number(width) <= 0 ||
+      Number(height) <= 0
+    ) {
       return;
     }
 
     const mapData: Map = {
       id: uuidv4(),
       name: name.trim(),
-      width,
-      height,
+      width: Number(width),
+      height: Number(height),
     };
 
     console.log("Map to add:", mapData);
@@ -69,8 +75,8 @@ export default function AddMap({ maxWidth = 1000, maxHeight = 1000 }: Props) {
             placeholder="Enter width in meters"
             min="1"
             max={maxWidth}
-            value={width || ""}
-            onChange={(e) => setWidth(Number(e.target.value))}
+            value={width}
+            onChange={(e) => setWidth(e.target.value)}
             required
           />
         </div>
@@ -83,8 +89,8 @@ export default function AddMap({ maxWidth = 1000, maxHeight = 1000 }: Props) {
             placeholder="Enter height in meters"
             min="1"
             max={maxHeight}
-            value={height || ""}
-            onChange={(e) => setHeight(Number(e.target.value))}
+            value={height}
+            onChange={(e) => setHeight(e.target.value)}
             required
           />
         </div>

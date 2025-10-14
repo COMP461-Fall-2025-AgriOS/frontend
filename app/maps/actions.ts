@@ -29,3 +29,24 @@ export async function addMap({ id, name, width, height }: Map) {
   }
   revalidatePath("/map");
 }
+
+/**
+ * Retrieves all maps from the system.
+ * 
+ * @throws {Error} Throws an error if the API request fails or returns a non-ok response
+ *
+ * @returns Promise<Map[]> - A promise that resolves to an array of Map objects
+ */
+export async function getMaps(): Promise<Map[]> {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/map/`,
+    { method: "GET" }
+  );
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch maps");
+  }
+
+  const maps: Map[] = await res.json();
+  return maps;
+}

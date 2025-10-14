@@ -13,6 +13,7 @@ import { revalidatePath } from "next/cache";
  * @param type - The type of robot to create
  * @param quantity - The number of robots to create
  * @param attributes - The robot attributes containing autonomy and speed
+ * @param mapId - The ID of the map to which to add the robots
  *
  * @throws {Error} Throws an error if the API request fails or returns a non-ok response
  *
@@ -21,7 +22,8 @@ import { revalidatePath } from "next/cache";
 export async function addRobots(
   type: RobotType,
   quantity: number,
-  attributes: RobotAttributes
+  attributes: RobotAttributes,
+  mapId: string
 ) {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/robots`,
@@ -31,6 +33,7 @@ export async function addRobots(
         type: type,
         quantity: quantity,
         attributes: attributes,
+        mapId: mapId,
       }),
     }
   );

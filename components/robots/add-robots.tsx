@@ -18,8 +18,11 @@ import {
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { addRobots } from "@/app/robots/actions";
+import { getMaps } from "@/app/maps/actions";
+import type { Map } from "@/components/maps/types";
+import { RefreshCw } from "lucide-react";
 
 interface Props {
   maxRobots?: number;
@@ -34,17 +37,42 @@ interface Props {
  * @returns A form component with robot type selection and quantity, autonomy, and speed inputs
  */
 export default function AddRobots({ maxRobots = 100 }: Props) {
-  // TODO: add Map select
-  const [robotType, setRobotType] = useState<RobotType>();
+  const [robotType, setRobotType] = useState<RobotType | "">("");
   const [numRobots, setNumRobots] = useState<number>();
-  const [attributes, setAttributes] = useState<RobotAttributes>({
-    autonomy: 0,
-    speed: 0,
+  const [attributes, setAttributes] = useState<
+    Record<keyof RobotAttributes, string>
+  >({
+    autonomy: "",
+    speed: "",
   });
+  const [selectedMapId, setSelectedMapId] = useState<string>("");
+  const [maps, setMaps] = useState<Map[]>([]);
+  const [isLoadingMaps, setIsLoadingMaps] = useState(false);
 
-  const handleAttributeChange = (key: keyof RobotAttributes, value: number) => {
+  const handleAttributeChange = (key: keyof RobotAttributes, value: string) => {
     setAttributes((prev) => ({ ...prev, [key]: value }));
   };
+
+  const fetchMaps = async () => {
+    setIsLoadingMaps(true);
+    try {
+      const fetchedMaps = await getMaps();
+      setMaps(fetchedMaps);
+    } catch (error) {
+      console.error("Failed to fetch maps:", error);
+    } finally {
+      setIsLoadingMaps(false);
+    }
+  };
+
+  const handleRefreshMaps = () => {
+    fetchMaps();
+  };
+
+  // Load maps on component mount
+  useEffect(() => {
+    fetchMaps();
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,26 +80,39 @@ export default function AddRobots({ maxRobots = 100 }: Props) {
     if (
       !robotType ||
       !numRobots ||
-      attributes.autonomy <= 0 ||
-      attributes.speed <= 0
+      !attributes.autonomy ||
+      !attributes.speed ||
+      !selectedMapId ||
+      Number(attributes.autonomy) <= 0 ||
+      Number(attributes.speed) <= 0
     ) {
-      console.log("Please fill in all required fields with valid values");
       return;
     }
+
+    const numericAttributes: RobotAttributes = {
+      autonomy: Number(attributes.autonomy),
+      speed: Number(attributes.speed),
+    };
 
     const robotData = {
       type: robotType,
       quantity: numRobots,
-      attributes: attributes,
+      attributes: numericAttributes,
+      mapId: selectedMapId,
     };
 
     console.log("Robots to add:", robotData);
     console.log(
-      `Adding ${numRobots} ${robotType}(s) with attributes:`,
-      attributes
+      `Adding ${numRobots} ${robotType}(s) to map ${selectedMapId} with attributes:`,
+      numericAttributes
     );
 
-    addRobots(robotType, numRobots, attributes);
+    addRobots(
+      robotType as RobotType,
+      numRobots,
+      numericAttributes,
+      selectedMapId
+    );
   };
 
   return (
@@ -112,6 +153,38 @@ export default function AddRobots({ maxRobots = 100 }: Props) {
         </div>
       </div>
 
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="robot-map">Target map</Label>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleRefreshMaps}
+            disabled={isLoadingMaps}
+            className="h-auto p-1"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${isLoadingMaps ? "animate-spin" : ""}`}
+            />
+          </Button>
+        </div>
+        <Select value={selectedMapId} onValueChange={setSelectedMapId}>
+          <SelectTrigger id="robot-map">
+            <SelectValue placeholder="Select a map" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {maps.map((map) => (
+                <SelectItem key={map.id} value={map.id}>
+                  {map.name} ({map.width}×{map.height}m)
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="flex gap-4">
         {Object.entries(ATTRIBUTE_FIELDS).map(([key, config]) => (
           <div key={key} className="flex-1 space-y-2">
@@ -128,7 +201,7 @@ export default function AddRobots({ maxRobots = 100 }: Props) {
               onChange={(e) =>
                 handleAttributeChange(
                   key as keyof RobotAttributes,
-                  Number(e.target.value)
+                  e.target.value
                 )
               }
             />

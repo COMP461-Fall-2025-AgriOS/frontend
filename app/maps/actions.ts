@@ -18,7 +18,7 @@ import { revalidatePath } from "next/cache";
  */
 export async function addMap({ id, name, width, height }: Map) {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/map/${id}`,
+    `${process.env.BACKEND_URL ?? ""}/map/${id}`,
     {
       method: "POST",
       body: JSON.stringify({ name: name, width: width, height: height }),
@@ -39,7 +39,7 @@ export async function addMap({ id, name, width, height }: Map) {
  */
 export async function getMaps(): Promise<Map[]> {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/map/`,
+    `${process.env.BACKEND_URL ?? ""}/map/`,
     { method: "GET" }
   );
 

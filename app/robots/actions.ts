@@ -26,7 +26,7 @@ export async function addRobots(
   mapId: string
 ) {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/robots`,
+    `${process.env.BACKEND_URL ?? ""}/robots`,
     {
       method: "POST",
       body: JSON.stringify({
@@ -45,7 +45,7 @@ export async function addRobots(
 
 export async function deleteRobot(uid: string) {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/robots/${uid}`,
+    `${process.env.BACKEND_URL ?? ""}/robots/${uid}`,
     {
       method: "DELETE",
     }
@@ -58,7 +58,7 @@ export async function deleteRobot(uid: string) {
 
 export async function updateRobotType(uid: string, type: "rover" | "drone") {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/robots/${uid}`,
+    `${process.env.BACKEND_URL ?? ""}/robots/${uid}`,
     {
       method: "PATCH",
       headers: { "content-type": "application/json" },

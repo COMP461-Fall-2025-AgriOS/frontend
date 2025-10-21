@@ -18,14 +18,16 @@ import {
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { addRobots } from "@/app/robots/actions";
-import { getMaps } from "@/app/maps/actions";
 import type { Map } from "@/components/maps/types";
 import { RefreshCw } from "lucide-react";
 
 interface Props {
+  maps: Map[];
   maxRobots?: number;
+  onRefreshMaps?: () => void;
+  isLoadingMaps?: boolean;
 }
 
 /**
@@ -36,7 +38,12 @@ interface Props {
  *
  * @returns A form component with robot type selection and quantity, autonomy, and speed inputs
  */
-export default function AddRobots({ maxRobots = 100 }: Props) {
+export default function AddRobots({
+  maps,
+  maxRobots = 100,
+  onRefreshMaps,
+  isLoadingMaps = false,
+}: Props) {
   const [robotType, setRobotType] = useState<RobotType | "">("");
   const [numRobots, setNumRobots] = useState<number>();
   const [attributes, setAttributes] = useState<
@@ -46,33 +53,16 @@ export default function AddRobots({ maxRobots = 100 }: Props) {
     speed: "",
   });
   const [selectedMapId, setSelectedMapId] = useState<string>("");
-  const [maps, setMaps] = useState<Map[]>([]);
-  const [isLoadingMaps, setIsLoadingMaps] = useState(false);
 
   const handleAttributeChange = (key: keyof RobotAttributes, value: string) => {
     setAttributes((prev) => ({ ...prev, [key]: value }));
   };
 
-  const fetchMaps = async () => {
-    setIsLoadingMaps(true);
-    try {
-      const fetchedMaps = await getMaps();
-      setMaps(fetchedMaps);
-    } catch (error) {
-      console.error("Failed to fetch maps:", error);
-    } finally {
-      setIsLoadingMaps(false);
+  const handleRefreshMaps = () => {
+    if (onRefreshMaps) {
+      onRefreshMaps();
     }
   };
-
-  const handleRefreshMaps = () => {
-    fetchMaps();
-  };
-
-  // Load maps on component mount
-  useEffect(() => {
-    fetchMaps();
-  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

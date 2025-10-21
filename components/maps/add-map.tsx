@@ -22,7 +22,7 @@ interface Props {
  *
  * @returns A form component with name, width and height inputs
  */
-export default function AddMap({ maxWidth = 1000, maxHeight = 1000 }: Props) {
+export default function AddMap({ maxWidth = 1500, maxHeight = 1500 }: Props) {
   const [name, setName] = useState<string>("");
   const [width, setWidth] = useState<string>("");
   const [height, setHeight] = useState<string>("");

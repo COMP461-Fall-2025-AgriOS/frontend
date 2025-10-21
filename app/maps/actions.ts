@@ -39,7 +39,7 @@ export async function addMap({ id, name, width, height }: Map) {
  */
 export async function getMaps(): Promise<Map[]> {
   const res = await fetch(
-    `${process.env.BACKEND_URL ?? ""}/map`,
+    `${process.env.BACKEND_URL ?? ""}/map/`,
     { method: "GET" }
   );
 

@@ -1,3 +1,5 @@
+"use client";
+
 import { RobotTable } from "@/components/robots/robot-table";
 import { robotColumns } from "@/components/robots/robot-columns";
 import type { Robot } from "@/components/robots/types";
@@ -7,6 +9,8 @@ import AddMap from "@/components/maps/add-map";
 import { MapsTable } from "@/components/maps/maps-table";
 import { mapsColumns } from "@/components/maps/maps-columns";
 import type { Map as MapType } from "@/components/maps/types";
+import { getMaps } from "@/app/maps/actions";
+import { useState, useEffect } from "react";
 
 const mockRobots: Robot[] = [
   {
@@ -54,6 +58,31 @@ const mockMaps: MapType[] = [
 ];
 
 export default function Home() {
+  const [maps, setMaps] = useState<MapType[]>([]);
+  const [isLoadingMaps, setIsLoadingMaps] = useState(false);
+
+  const fetchMaps = async () => {
+    setIsLoadingMaps(true);
+    try {
+      const fetchedMaps = await getMaps();
+      setMaps(fetchedMaps);
+    } catch (error) {
+      console.error("Failed to fetch maps:", error);
+      // Fallback to mock data if fetch fails
+      setMaps(mockMaps);
+    } finally {
+      setIsLoadingMaps(false);
+    }
+  };
+
+  const handleRefreshMaps = () => {
+    fetchMaps();
+  };
+
+  // Load maps on component mount
+  useEffect(() => {
+    fetchMaps();
+  }, []);
   return (
     <div className="px-4 py-6 md:px-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -63,7 +92,11 @@ export default function Home() {
             <CardTitle className="text-lg">Add robots</CardTitle>
           </CardHeader>
           <CardContent>
-            <AddRobots></AddRobots>
+            <AddRobots
+              maps={maps}
+              onRefreshMaps={handleRefreshMaps}
+              isLoadingMaps={isLoadingMaps}
+            />
           </CardContent>
         </Card>
 
@@ -93,7 +126,7 @@ export default function Home() {
             <CardTitle className="text-lg">Maps</CardTitle>
           </CardHeader>
           <CardContent className="text-sm">
-            <MapsTable columns={mapsColumns} data={mockMaps} />
+            <MapsTable columns={mapsColumns} data={maps} />
           </CardContent>
         </Card>
       </div>

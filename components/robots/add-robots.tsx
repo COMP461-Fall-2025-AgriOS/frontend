@@ -19,16 +19,24 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { useState } from "react";
-import { addRobots } from "@/app/robots/actions";
 import type { Map } from "@/components/maps/types";
 import { RefreshCw } from "lucide-react";
+
+export interface RobotSubmissionData {
+  type: RobotType;
+  quantity: number;
+  attributes: RobotAttributes;
+  mapId: string;
+}
 
 interface Props {
   maps: Map[];
   maxRobots?: number;
   onRefreshMaps?: () => void;
   isLoadingMaps?: boolean;
-  onRobotAdded?: () => void;
+  onSubmit: (data: RobotSubmissionData) => Promise<void> | void;
+  isLoading?: boolean;
+  disabled?: boolean;
 }
 
 /**
@@ -37,6 +45,13 @@ interface Props {
  * The component displays a form with robot type selection and quantity, autonomy, and speed inputs,
  * allowing users to specify both the type and number of robots to add.
  *
+ * @param maps - List of available maps
+ * @param maxRobots - Maximum number of robots that can be added at once (default: 100)
+ * @param onRefreshMaps - Callback to refresh the maps list
+ * @param isLoadingMaps - Whether the maps are currently loading
+ * @param onSubmit - Callback function to handle the robot submission
+ * @param isLoading - Whether the form is in a loading state
+ * @param disabled - Whether the form is disabled
  * @returns A form component with robot type selection and quantity, autonomy, and speed inputs
  */
 export default function AddRobots({
@@ -44,7 +59,9 @@ export default function AddRobots({
   maxRobots = 100,
   onRefreshMaps,
   isLoadingMaps = false,
-  onRobotAdded,
+  onSubmit,
+  isLoading = false,
+  disabled = false,
 }: Props) {
   const [robotType, setRobotType] = useState<RobotType | "">("");
   const [numRobots, setNumRobots] = useState<number>();
@@ -86,34 +103,20 @@ export default function AddRobots({
       speed: Number(attributes.speed),
     };
 
-    const robotData = {
-      type: robotType,
+    const robotData: RobotSubmissionData = {
+      type: robotType as RobotType,
       quantity: numRobots,
       attributes: numericAttributes,
       mapId: selectedMapId,
     };
 
-    console.log("Robots to add:", robotData);
-    console.log(
-      `Adding ${numRobots} ${robotType}(s) to map ${selectedMapId} with attributes:`,
-      numericAttributes
-    );
+    await onSubmit(robotData);
 
-    try {
-      await addRobots(
-        robotType as RobotType,
-        numRobots,
-        numericAttributes,
-        selectedMapId
-      );
-      
-      // Refresh the robot list after adding
-      if (onRobotAdded) {
-        onRobotAdded();
-      }
-    } catch (error) {
-      console.error("Failed to add robots:", error);
-    }
+    // Clear form after successful submission
+    setRobotType("");
+    setNumRobots(undefined);
+    setAttributes({ autonomy: "", speed: "" });
+    setSelectedMapId("");
   };
 
   return (
@@ -124,6 +127,7 @@ export default function AddRobots({
           <Select
             value={robotType}
             onValueChange={(value) => setRobotType(value as RobotType)}
+            disabled={isLoading || disabled}
           >
             <SelectTrigger id="robot-type">
               <SelectValue placeholder="Select a robot type" />
@@ -150,6 +154,7 @@ export default function AddRobots({
             max={maxRobots}
             value={numRobots || ""}
             onChange={(e) => setNumRobots(Number(e.target.value))}
+            disabled={isLoading || disabled}
           />
         </div>
       </div>
@@ -162,7 +167,7 @@ export default function AddRobots({
             variant="ghost"
             size="sm"
             onClick={handleRefreshMaps}
-            disabled={isLoadingMaps}
+            disabled={isLoadingMaps || isLoading || disabled}
             className="h-auto p-1"
           >
             <RefreshCw
@@ -170,7 +175,11 @@ export default function AddRobots({
             />
           </Button>
         </div>
-        <Select value={selectedMapId} onValueChange={setSelectedMapId}>
+        <Select
+          value={selectedMapId}
+          onValueChange={setSelectedMapId}
+          disabled={isLoading || disabled}
+        >
           <SelectTrigger id="robot-map">
             <SelectValue placeholder="Select a map" />
           </SelectTrigger>
@@ -178,7 +187,7 @@ export default function AddRobots({
             <SelectGroup>
               {maps.map((map) => (
                 <SelectItem key={map.id} value={map.id}>
-                  {map.name} ({map.width}×{map.height}m)
+                  {map.name}
                 </SelectItem>
               ))}
             </SelectGroup>
@@ -205,13 +214,14 @@ export default function AddRobots({
                   e.target.value
                 )
               }
+              disabled={isLoading || disabled}
             />
           </div>
         ))}
       </div>
 
-      <Button type="submit" className="w-full">
-        Add robots
+      <Button type="submit" className="w-full" disabled={isLoading || disabled}>
+        {isLoading ? "Adding..." : "Add robots"}
       </Button>
     </form>
   );

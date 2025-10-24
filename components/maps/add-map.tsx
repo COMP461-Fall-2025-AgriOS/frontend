@@ -6,11 +6,13 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { useState } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { addMap } from "@/app/maps/actions";
 
 interface Props {
   maxWidth?: number;
   maxHeight?: number;
+  onSubmit: (mapData: Map) => Promise<void> | void;
+  isLoading?: boolean;
+  disabled?: boolean;
 }
 
 /**
@@ -18,16 +20,27 @@ interface Props {
  *
  * The component displays a form with name, width and height inputs,
  * allowing users to specify the name and dimensions of the map to add.
- * When submitted, it generates a unique ID for the map.
+ * When submitted, it generates a unique ID for the map and calls the onSubmit callback.
  *
+ * @param maxWidth - Maximum allowed width for the map (default: 1500)
+ * @param maxHeight - Maximum allowed height for the map (default: 1500)
+ * @param onSubmit - Callback function to handle the map submission
+ * @param isLoading - Whether the form is in a loading state
+ * @param disabled - Whether the form is disabled
  * @returns A form component with name, width and height inputs
  */
-export default function AddMap({ maxWidth = 1500, maxHeight = 1500 }: Props) {
+export default function AddMap({
+  maxWidth = 1500,
+  maxHeight = 1500,
+  onSubmit,
+  isLoading = false,
+  disabled = false,
+}: Props) {
   const [name, setName] = useState<string>("");
   const [width, setWidth] = useState<string>("");
   const [height, setHeight] = useState<string>("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (
@@ -47,9 +60,12 @@ export default function AddMap({ maxWidth = 1500, maxHeight = 1500 }: Props) {
       height: Number(height),
     };
 
-    console.log("Map to add:", mapData);
+    await onSubmit(mapData);
 
-    addMap(mapData);
+    // Clear form after successful submission
+    setName("");
+    setWidth("");
+    setHeight("");
   };
 
   return (
@@ -63,6 +79,7 @@ export default function AddMap({ maxWidth = 1500, maxHeight = 1500 }: Props) {
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
+          disabled={isLoading || disabled}
         />
       </div>
 
@@ -78,6 +95,7 @@ export default function AddMap({ maxWidth = 1500, maxHeight = 1500 }: Props) {
             value={width}
             onChange={(e) => setWidth(e.target.value)}
             required
+            disabled={isLoading || disabled}
           />
         </div>
 
@@ -92,12 +110,13 @@ export default function AddMap({ maxWidth = 1500, maxHeight = 1500 }: Props) {
             value={height}
             onChange={(e) => setHeight(e.target.value)}
             required
+            disabled={isLoading || disabled}
           />
         </div>
       </div>
 
-      <Button type="submit" className="w-full">
-        Add map
+      <Button type="submit" className="w-full" disabled={isLoading || disabled}>
+        {isLoading ? "Adding..." : "Add map"}
       </Button>
     </form>
   );

@@ -4,16 +4,19 @@ import { RobotTable } from "@/components/robots/robot-table";
 import { createRobotColumns } from "@/components/robots/robot-columns";
 import type { Robot } from "@/components/robots/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import AddRobots from "@/components/robots/add-robots";
+import AddRobots, {
+  type RobotSubmissionData,
+} from "@/components/robots/add-robots";
 import AddMap from "@/components/maps/add-map";
 import { MapsTable } from "@/components/maps/maps-table";
 import { createMapsColumns } from "@/components/maps/maps-columns";
 import type { Map as MapType } from "@/components/maps/types";
-import { getMaps } from "@/app/maps/actions";
-import { getRobots } from "@/app/robots/actions";
+import { getMaps, addMap } from "@/app/maps/actions";
+import { getRobots, addRobots } from "@/app/robots/actions";
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import {
   Select,
   SelectContent,
@@ -23,18 +26,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const mockMaps: MapType[] = [
-  { id: "m-001", name: "field-a", width: 200, height: 120 },
-  { id: "m-002", name: "field-b", width: 150, height: 150 },
-  { id: "m-003", name: "orchard-1", width: 100, height: 300 },
-];
-
 export default function Home() {
   const [maps, setMaps] = useState<MapType[]>([]);
   const [robots, setRobots] = useState<Robot[]>([]);
   const [selectedMapId, setSelectedMapId] = useState<string>("all");
   const [isLoadingMaps, setIsLoadingMaps] = useState(false);
   const [isLoadingRobots, setIsLoadingRobots] = useState(false);
+  const [isAddingMap, setIsAddingMap] = useState(false);
+  const [isAddingRobots, setIsAddingRobots] = useState(false);
 
   const fetchMaps = async () => {
     setIsLoadingMaps(true);
@@ -43,8 +42,7 @@ export default function Home() {
       setMaps(fetchedMaps);
     } catch (error) {
       console.error("Failed to fetch maps:", error);
-      // Fallback to mock data if fetch fails
-      setMaps(mockMaps);
+      setMaps([]);
     } finally {
       setIsLoadingMaps(false);
     }
@@ -71,6 +69,42 @@ export default function Home() {
     fetchRobots();
   };
 
+  // Handler to submit a new map
+  const handleAddMap = async (mapData: MapType) => {
+    setIsAddingMap(true);
+    try {
+      await addMap(mapData);
+      toast.success("Map added successfully");
+      await fetchMaps(); // Refresh the maps list
+    } catch (error) {
+      console.error("Failed to add map:", error);
+      toast.error("Failed to add map");
+      throw error; // Re-throw to prevent form from clearing
+    } finally {
+      setIsAddingMap(false);
+    }
+  };
+
+  // Handler to submit new robots
+  const handleAddRobots = async (data: RobotSubmissionData) => {
+    setIsAddingRobots(true);
+    try {
+      await addRobots(data.type, data.quantity, data.attributes, data.mapId);
+      toast.success(
+        `Successfully added ${data.quantity} robot${
+          data.quantity > 1 ? "s" : ""
+        }`
+      );
+      await fetchRobots(); // Refresh the robots list
+    } catch (error) {
+      console.error("Failed to add robots:", error);
+      toast.error("Failed to add robots");
+      throw error; // Re-throw to prevent form from clearing
+    } finally {
+      setIsAddingRobots(false);
+    }
+  };
+
   // Handler to refresh both maps and robots (for cascade delete)
   const handleMapDeleted = () => {
     fetchMaps();
@@ -78,13 +112,14 @@ export default function Home() {
   };
 
   // Filter robots by selected map
-  const filteredRobots = selectedMapId === "all" 
-    ? robots 
-    : robots.filter(robot => robot.mapId === selectedMapId);
+  const filteredRobots =
+    selectedMapId === "all"
+      ? robots
+      : robots.filter((robot) => robot.mapId === selectedMapId);
 
   // Create maps columns with delete callback
   const mapsColumns = useMemo(() => createMapsColumns(handleMapDeleted), []);
-  
+
   // Create robot columns with update callback
   const robotColumns = useMemo(() => createRobotColumns(fetchRobots), []);
 
@@ -106,7 +141,8 @@ export default function Home() {
               maps={maps}
               onRefreshMaps={handleRefreshMaps}
               isLoadingMaps={isLoadingMaps}
-              onRobotAdded={handleRefreshRobots}
+              onSubmit={handleAddRobots}
+              isLoading={isAddingRobots}
             />
           </CardContent>
         </Card>
@@ -117,7 +153,7 @@ export default function Home() {
             <CardTitle className="text-lg">Add map</CardTitle>
           </CardHeader>
           <CardContent>
-            <AddMap></AddMap>
+            <AddMap onSubmit={handleAddMap} isLoading={isAddingMap} />
           </CardContent>
         </Card>
 
@@ -151,7 +187,9 @@ export default function Home() {
                   className="h-auto p-1"
                 >
                   <RefreshCw
-                    className={`h-4 w-4 ${isLoadingRobots ? "animate-spin" : ""}`}
+                    className={`h-4 w-4 ${
+                      isLoadingRobots ? "animate-spin" : ""
+                    }`}
                   />
                 </Button>
               </div>

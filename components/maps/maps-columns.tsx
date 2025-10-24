@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import type { Map as MapType } from "./types"
+import { deleteMap } from "@/app/maps/actions"
 
 function EditMapDialog({ map }: { map: MapType }) {
   const [name, setName] = useState<string>(map.name)
@@ -64,7 +65,7 @@ function EditMapDialog({ map }: { map: MapType }) {
   )
 }
 
-function DeleteMapButton({ map }: { map: MapType }) {
+function DeleteMapButton({ map, onMapDeleted }: { map: MapType; onMapDeleted?: () => void }) {
   const [isPending, startTransition] = useTransition()
   return (
     <AlertDialog>
@@ -85,8 +86,13 @@ function DeleteMapButton({ map }: { map: MapType }) {
             onClick={() =>
               startTransition(async () => {
                 try {
-                  toast.info("Delete coming soon")
-                } catch {
+                  await deleteMap(map.id)
+                  toast.success(`Map "${map.name}" deleted successfully`)
+                  if (onMapDeleted) {
+                    onMapDeleted()
+                  }
+                } catch (error) {
+                  console.error("Failed to delete map:", error)
                   toast.error("Failed to delete map")
                 }
               })
@@ -100,57 +106,59 @@ function DeleteMapButton({ map }: { map: MapType }) {
   )
 }
 
-export const mapsColumns: ColumnDef<MapType>[] = [
-  {
-    accessorKey: "id",
-    header: "ID",
-    cell: ({ row }) => <span className="font-mono text-xs">{row.original.id}</span>,
-  },
-  {
-    accessorKey: "name",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        className="-ml-3"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-      >
-        Name
-        <ArrowUpDown className="ml-2 h-4 w-4" />
-      </Button>
-    ),
-  },
-  {
-    accessorKey: "width",
-    header: "Width (m)",
-    cell: ({ row }) => <span>{row.original.width}</span>,
-  },
-  {
-    accessorKey: "height",
-    header: "Height (m)",
-    cell: ({ row }) => <span>{row.original.height}</span>,
-  },
-  {
-    id: "actions",
-    header: "",
-    cell: ({ row }) => {
-      const map = row.original
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <EditMapDialog map={map} />
-            <DropdownMenuSeparator />
-            <DeleteMapButton map={map} />
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )
+export function createMapsColumns(onMapDeleted?: () => void): ColumnDef<MapType>[] {
+  return [
+    {
+      accessorKey: "id",
+      header: "ID",
+      cell: ({ row }) => <span className="font-mono text-xs">{row.original.id}</span>,
     },
-  },
-]
+    {
+      accessorKey: "name",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          className="-ml-3"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Name
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+    },
+    {
+      accessorKey: "width",
+      header: "Width (m)",
+      cell: ({ row }) => <span>{row.original.width}</span>,
+    },
+    {
+      accessorKey: "height",
+      header: "Height (m)",
+      cell: ({ row }) => <span>{row.original.height}</span>,
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => {
+        const map = row.original
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <EditMapDialog map={map} />
+              <DropdownMenuSeparator />
+              <DeleteMapButton map={map} onMapDeleted={onMapDeleted} />
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
+    },
+  ]
+}
 
 

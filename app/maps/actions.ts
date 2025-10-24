@@ -50,3 +50,25 @@ export async function getMaps(): Promise<Map[]> {
   const maps: Map[] = await res.json();
   return maps;
 }
+
+/**
+ * Deletes a map from the system.
+ * 
+ * @param id - The unique identifier of the map to delete
+ * 
+ * @throws {Error} Throws an error if the API request fails or returns a non-ok response
+ *
+ * @returns Promise<void> - Resolves when the map is successfully deleted and cache is revalidated
+ */
+export async function deleteMap(id: string) {
+  const res = await fetch(
+    `${process.env.BACKEND_URL ?? ""}/map/${id}`,
+    {
+      method: "DELETE",
+    }
+  );
+  if (!res.ok) {
+    throw new Error("Failed to delete map");
+  }
+  revalidatePath("/map");
+}

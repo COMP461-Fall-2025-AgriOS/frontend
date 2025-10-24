@@ -7,11 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import AddRobots from "@/components/robots/add-robots";
 import AddMap from "@/components/maps/add-map";
 import { MapsTable } from "@/components/maps/maps-table";
-import { mapsColumns } from "@/components/maps/maps-columns";
+import { createMapsColumns } from "@/components/maps/maps-columns";
 import type { Map as MapType } from "@/components/maps/types";
 import { getMaps } from "@/app/maps/actions";
 import { getRobots } from "@/app/robots/actions";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import {
@@ -71,10 +71,19 @@ export default function Home() {
     fetchRobots();
   };
 
+  // Handler to refresh both maps and robots (for cascade delete)
+  const handleMapDeleted = () => {
+    fetchMaps();
+    fetchRobots(); // Refresh robots as they may have been cascade deleted
+  };
+
   // Filter robots by selected map
   const filteredRobots = selectedMapId === "all" 
     ? robots 
     : robots.filter(robot => robot.mapId === selectedMapId);
+
+  // Create maps columns with delete callback
+  const mapsColumns = useMemo(() => createMapsColumns(handleMapDeleted), []);
 
   // Load maps and robots on component mount
   useEffect(() => {

@@ -15,12 +15,11 @@ import { toast } from "sonner"
 import type { Robot } from "./types"
 
 function AttributesPreview({ attributes }: { attributes: Robot['attributes'] }) {
-  const keys = Object.keys(attributes ?? {})
-  if (keys.length === 0) return <span className="text-muted-foreground">—</span>
+  if (!attributes) return <span className="text-muted-foreground">—</span>
   return (
     <div className="flex flex-wrap gap-1">
-      <Badge variant="secondary">autonomy: {String(attributes.autonomy)} miles</Badge>
-      <Badge variant="secondary">speed: {String(attributes.speed)} mph</Badge>
+      <Badge variant="secondary">autonomy: {attributes.autonomy}m</Badge>
+      <Badge variant="secondary">speed: {attributes.speed}m/s</Badge>
     </div>
   )
 }
@@ -28,8 +27,8 @@ function AttributesPreview({ attributes }: { attributes: Robot['attributes'] }) 
 function EditTypeDialog({ robot }: { robot: Robot }) {
   const [value, setValue] = useState<"rover" | "drone">(robot.type)
   const [name, setName] = useState<string>(robot.name)
-  const [autonomy, setAutonomy] = useState<string>(String(robot.attributes.autonomy))
-  const [speed, setSpeed] = useState<string>(String(robot.attributes.speed))
+  const [autonomy, setAutonomy] = useState<string>(String(robot.attributes?.autonomy || 0))
+  const [speed, setSpeed] = useState<string>(String(robot.attributes?.speed || 0))
   const [isPending, startTransition] = useTransition()
   return (
     <Dialog>
@@ -59,11 +58,11 @@ function EditTypeDialog({ robot }: { robot: Robot }) {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <div className="text-sm font-medium">Autonomy (miles)</div>
+              <div className="text-sm font-medium">Autonomy (m)</div>
               <Input inputMode="numeric" value={autonomy} onChange={(e) => setAutonomy(e.target.value)} placeholder="e.g. 5" />
             </div>
             <div className="space-y-1">
-              <div className="text-sm font-medium">Speed (mph)</div>
+              <div className="text-sm font-medium">Speed (m/s)</div>
               <Input inputMode="numeric" value={speed} onChange={(e) => setSpeed(e.target.value)} placeholder="e.g. 1.2" />
             </div>
           </div>
@@ -130,9 +129,9 @@ function DeleteRobotButton({ robot }: { robot: Robot }) {
 
 export const robotColumns: ColumnDef<Robot>[] = [
   {
-    accessorKey: 'uid',
-    header: 'UID',
-    cell: ({ row }) => <span className="font-mono text-xs">{row.original.uid}</span>,
+    accessorKey: 'id',
+    header: 'ID',
+    cell: ({ row }) => <span className="font-mono text-xs">{row.original.id}</span>,
   },
   {
     accessorKey: 'name',

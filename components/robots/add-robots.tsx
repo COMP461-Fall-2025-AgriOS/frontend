@@ -28,6 +28,7 @@ interface Props {
   maxRobots?: number;
   onRefreshMaps?: () => void;
   isLoadingMaps?: boolean;
+  onRobotAdded?: () => void;
 }
 
 /**
@@ -43,6 +44,7 @@ export default function AddRobots({
   maxRobots = 100,
   onRefreshMaps,
   isLoadingMaps = false,
+  onRobotAdded,
 }: Props) {
   const [robotType, setRobotType] = useState<RobotType | "">("");
   const [numRobots, setNumRobots] = useState<number>();
@@ -64,7 +66,7 @@ export default function AddRobots({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (
@@ -97,12 +99,21 @@ export default function AddRobots({
       numericAttributes
     );
 
-    addRobots(
-      robotType as RobotType,
-      numRobots,
-      numericAttributes,
-      selectedMapId
-    );
+    try {
+      await addRobots(
+        robotType as RobotType,
+        numRobots,
+        numericAttributes,
+        selectedMapId
+      );
+      
+      // Refresh the robot list after adding
+      if (onRobotAdded) {
+        onRobotAdded();
+      }
+    } catch (error) {
+      console.error("Failed to add robots:", error);
+    }
   };
 
   return (

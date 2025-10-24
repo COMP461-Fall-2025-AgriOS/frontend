@@ -39,8 +39,10 @@ export const ROBOT_TYPES = ["rover", "drone"] as const;
 export type RobotType = (typeof ROBOT_TYPES)[number];
 
 export interface Robot {
-  uid: string;
+  id: string;
   name: string;
   type: RobotType;
   attributes: RobotAttributes;
+  mapId?: string;
+  position?: number[];
 }

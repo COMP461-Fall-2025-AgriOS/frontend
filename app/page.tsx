@@ -10,46 +10,18 @@ import { MapsTable } from "@/components/maps/maps-table";
 import { mapsColumns } from "@/components/maps/maps-columns";
 import type { Map as MapType } from "@/components/maps/types";
 import { getMaps } from "@/app/maps/actions";
+import { getRobots } from "@/app/robots/actions";
 import { useState, useEffect } from "react";
-
-const mockRobots: Robot[] = [
-  {
-    uid: "r-001",
-    name: "rover-1",
-    type: "rover",
-    attributes: { autonomy: 5, speed: 12 },
-  },
-  {
-    uid: "r-002",
-    name: "drone-1",
-    type: "drone",
-    attributes: { autonomy: 2, speed: 18 },
-  },
-  {
-    uid: "r-003",
-    name: "rover-2",
-    type: "rover",
-    attributes: { autonomy: 6, speed: 10 },
-  },
-  {
-    uid: "r-004",
-    name: "drone-2",
-    type: "drone",
-    attributes: { autonomy: 3, speed: 20 },
-  },
-  {
-    uid: "r-005",
-    name: "rover-3",
-    type: "rover",
-    attributes: { autonomy: 4, speed: 9 },
-  },
-  {
-    uid: "r-006",
-    name: "drone-3",
-    type: "drone",
-    attributes: { autonomy: 2.5, speed: 15 },
-  },
-];
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const mockMaps: MapType[] = [
   { id: "m-001", name: "field-a", width: 200, height: 120 },
@@ -59,7 +31,10 @@ const mockMaps: MapType[] = [
 
 export default function Home() {
   const [maps, setMaps] = useState<MapType[]>([]);
+  const [robots, setRobots] = useState<Robot[]>([]);
+  const [selectedMapId, setSelectedMapId] = useState<string>("all");
   const [isLoadingMaps, setIsLoadingMaps] = useState(false);
+  const [isLoadingRobots, setIsLoadingRobots] = useState(false);
 
   const fetchMaps = async () => {
     setIsLoadingMaps(true);
@@ -75,13 +50,36 @@ export default function Home() {
     }
   };
 
+  const fetchRobots = async () => {
+    setIsLoadingRobots(true);
+    try {
+      const fetchedRobots = await getRobots();
+      setRobots(fetchedRobots);
+    } catch (error) {
+      console.error("Failed to fetch robots:", error);
+      setRobots([]);
+    } finally {
+      setIsLoadingRobots(false);
+    }
+  };
+
   const handleRefreshMaps = () => {
     fetchMaps();
   };
 
-  // Load maps on component mount
+  const handleRefreshRobots = () => {
+    fetchRobots();
+  };
+
+  // Filter robots by selected map
+  const filteredRobots = selectedMapId === "all" 
+    ? robots 
+    : robots.filter(robot => robot.mapId === selectedMapId);
+
+  // Load maps and robots on component mount
   useEffect(() => {
     fetchMaps();
+    fetchRobots();
   }, []);
   return (
     <div className="px-4 py-6 md:px-6">
@@ -96,6 +94,7 @@ export default function Home() {
               maps={maps}
               onRefreshMaps={handleRefreshMaps}
               isLoadingMaps={isLoadingMaps}
+              onRobotAdded={handleRefreshRobots}
             />
           </CardContent>
         </Card>
@@ -113,17 +112,62 @@ export default function Home() {
         {/* Current robots list */}
         <Card className="w-full">
           <CardHeader>
-            <CardTitle className="text-lg">Robots</CardTitle>
+            <div className="flex items-center justify-between gap-4">
+              <CardTitle className="text-lg">Robots</CardTitle>
+              <div className="flex items-center gap-2">
+                <Select value={selectedMapId} onValueChange={setSelectedMapId}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select a map" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="all">All Maps</SelectItem>
+                      {maps.map((map) => (
+                        <SelectItem key={map.id} value={map.id}>
+                          {map.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRefreshRobots}
+                  disabled={isLoadingRobots}
+                  className="h-auto p-1"
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${isLoadingRobots ? "animate-spin" : ""}`}
+                  />
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="text-sm">
-            <RobotTable columns={robotColumns} data={mockRobots} />
+            <RobotTable columns={robotColumns} data={filteredRobots} />
           </CardContent>
         </Card>
 
         {/* Current maps list */}
         <Card className="w-full">
           <CardHeader>
-            <CardTitle className="text-lg">Maps</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">Maps</CardTitle>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleRefreshMaps}
+                disabled={isLoadingMaps}
+                className="h-auto p-1"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${isLoadingMaps ? "animate-spin" : ""}`}
+                />
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="text-sm">
             <MapsTable columns={mapsColumns} data={maps} />

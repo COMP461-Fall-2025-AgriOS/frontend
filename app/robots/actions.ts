@@ -1,7 +1,61 @@
 "use server";
 
 import { RobotType, RobotAttributes } from "@/lib/types";
+import type { Robot } from "@/components/robots/types";
 import { revalidatePath } from "next/cache";
+
+/**
+ * Retrieves all robots from the system.
+ * 
+ * @throws {Error} Throws an error if the API request fails or returns a non-ok response
+ *
+ * @returns Promise<Robot[]> - A promise that resolves to an array of Robot objects
+ */
+export async function getRobots(): Promise<Robot[]> {
+  const res = await fetch(
+    `${process.env.BACKEND_URL ?? ""}/robots`,
+    { 
+      method: "GET",
+      cache: "no-store"
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch robots");
+  }
+
+  const rawRobots = await res.json();
+  
+  // Transform backend format to frontend format
+  const robots: Robot[] = rawRobots.map((robot: any) => {
+    // Parse attributes string into RobotAttributes object
+    let attributes: RobotAttributes = { autonomy: 0, speed: 0 };
+    if (robot.attributes && typeof robot.attributes === 'string') {
+      // Try to parse as JSON or extract values from string
+      try {
+        // If it's JSON-like, parse it
+        attributes = JSON.parse(robot.attributes);
+      } catch {
+        // If not JSON, try to extract numbers from the string
+        const autonomyMatch = robot.attributes.match(/autonomy[:\s]+(\d+\.?\d*)/i);
+        const speedMatch = robot.attributes.match(/speed[:\s]+(\d+\.?\d*)/i);
+        if (autonomyMatch) attributes.autonomy = parseFloat(autonomyMatch[1]);
+        if (speedMatch) attributes.speed = parseFloat(speedMatch[1]);
+      }
+    }
+    
+    return {
+      id: robot.id,
+      name: robot.name,
+      type: robot.type,
+      attributes,
+      mapId: robot.mapId,
+      position: robot.position
+    };
+  });
+  
+  return robots;
+}
 
 /**
  * Adds multiple robots to the system with specified parameters.
@@ -25,16 +79,33 @@ export async function addRobots(
   attributes: RobotAttributes,
   mapId: string
 ) {
+  // Generate an array of robots as expected by the backend
+  const { v4: uuidv4 } = await import('uuid');
+  
+  // Format attributes as a string for the backend
+  const attributesString = `autonomy: ${attributes.autonomy}, speed: ${attributes.speed}`;
+  
+  // Create array of robot objects
+  const robotsArray = [];
+  for (let i = 0; i < quantity; i++) {
+    robotsArray.push({
+      name: `${type}-${i + 1}`,
+      id: uuidv4(),
+      type: type,
+      attributes: attributesString,
+      mapId: mapId,
+      position: [0, 0] // Starting position
+    });
+  }
+  
   const res = await fetch(
     `${process.env.BACKEND_URL ?? ""}/robots`,
     {
       method: "POST",
-      body: JSON.stringify({
-        type: type,
-        quantity: quantity,
-        attributes: attributes,
-        mapId: mapId,
-      }),
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(robotsArray),
     }
   );
   if (!res.ok) {
@@ -43,9 +114,9 @@ export async function addRobots(
   revalidatePath("/robots");
 }
 
-export async function deleteRobot(uid: string) {
+export async function deleteRobot(id: string) {
   const res = await fetch(
-    `${process.env.BACKEND_URL ?? ""}/robots/${uid}`,
+    `${process.env.BACKEND_URL ?? ""}/robots/${id}`,
     {
       method: "DELETE",
     }
@@ -56,9 +127,9 @@ export async function deleteRobot(uid: string) {
   revalidatePath("/robots");
 }
 
-export async function updateRobotType(uid: string, type: "rover" | "drone") {
+export async function updateRobotType(id: string, type: "rover" | "drone") {
   const res = await fetch(
-    `${process.env.BACKEND_URL ?? ""}/robots/${uid}`,
+    `${process.env.BACKEND_URL ?? ""}/robots/${id}`,
     {
       method: "PATCH",
       headers: { "content-type": "application/json" },

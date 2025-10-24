@@ -1,7 +1,6 @@
 "use server";
 
-import { RobotType, RobotAttributes } from "@/lib/types";
-import type { Robot } from "@/components/robots/types";
+import type { Robot, RobotType, RobotAttributes } from "@/components/robots/types";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -127,13 +126,29 @@ export async function deleteRobot(id: string) {
   revalidatePath("/robots");
 }
 
-export async function updateRobotType(id: string, type: "rover" | "drone") {
+export async function updateRobot(
+  id: string,
+  name: string,
+  type: RobotType,
+  attributes: RobotAttributes,
+  mapId?: string
+) {
+  // Format attributes as a string for the backend
+  const attributesString = `autonomy: ${attributes.autonomy}, speed: ${attributes.speed}`;
+  
   const res = await fetch(
     `${process.env.BACKEND_URL ?? ""}/robots/${id}`,
     {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ type }),
+      body: JSON.stringify({ 
+        id,
+        name,
+        type,
+        attributes: attributesString,
+        mapId: mapId || "",
+        position: [0, 0] // Keep existing position or default
+      }),
     }
   );
   if (!res.ok) {

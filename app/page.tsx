@@ -1,7 +1,7 @@
 "use client";
 
 import { RobotTable } from "@/components/robots/robot-table";
-import { robotColumns } from "@/components/robots/robot-columns";
+import { createRobotColumns } from "@/components/robots/robot-columns";
 import type { Robot } from "@/components/robots/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import AddRobots from "@/components/robots/add-robots";
@@ -84,6 +84,9 @@ export default function Home() {
 
   // Create maps columns with delete callback
   const mapsColumns = useMemo(() => createMapsColumns(handleMapDeleted), []);
+  
+  // Create robot columns with update callback
+  const robotColumns = useMemo(() => createRobotColumns(fetchRobots), []);
 
   // Load maps and robots on component mount
   useEffect(() => {

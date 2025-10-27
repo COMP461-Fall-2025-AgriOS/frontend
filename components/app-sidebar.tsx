@@ -13,9 +13,9 @@ import {
 import Image from "next/image";
 
 const items = [
-  { title: "Dashboard", url: "dashboard", icon: Home },
+  { title: "Dashboard", url: "/dashboard", icon: Home },
   { title: "Schedule", url: "#", icon: Calendar },
-  { title: "Simulation", url: "simulation", icon: PlaySquare },
+  { title: "Simulation", url: "/simulation", icon: PlaySquare },
   { title: "Settings", url: "#", icon: Settings },
 ];
 

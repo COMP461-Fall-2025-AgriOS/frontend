@@ -1,4 +1,4 @@
-import { Calendar, Home, PlaySquare, Settings } from "lucide-react"
+import { Calendar, Home, PlaySquare, Settings } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -9,15 +9,15 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
-import Image from "next/image"
+} from "@/components/ui/sidebar";
+import Image from "next/image";
 
 const items = [
-  { title: "Dashboard", url: "#", icon: Home },
+  { title: "Dashboard", url: "dashboard", icon: Home },
   { title: "Schedule", url: "#", icon: Calendar },
-  { title: "Simulation", url: "#", icon: PlaySquare },
+  { title: "Simulation", url: "simulation", icon: PlaySquare },
   { title: "Settings", url: "#", icon: Settings },
-]
+];
 
 export function AppSidebar() {
   return (
@@ -25,7 +25,9 @@ export function AppSidebar() {
       <SidebarHeader>
         <div className="flex items-center gap-2 p-2">
           <Image src="/agrios_logo.png" alt="AgriOS" width={28} height={28} />
-          <span className="font-semibold text-sm group-data-[collapsible=icon]:hidden">AgriOS</span>
+          <span className="font-semibold text-sm group-data-[collapsible=icon]:hidden">
+            AgriOS
+          </span>
         </div>
       </SidebarHeader>
       <SidebarContent>
@@ -48,7 +50,5 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
     </Sidebar>
-  )
+  );
 }
-
-

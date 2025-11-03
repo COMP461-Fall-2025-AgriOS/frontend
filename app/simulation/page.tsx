@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useTransition } from "react";
-import dynamic from "next/dynamic";
+import { useState, useEffect, useTransition } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,32 +16,27 @@ import {
 } from "@/components/ui/select";
 import { Info, RefreshCw, Play } from "lucide-react";
 import { toast } from "sonner";
-import { runSimulation } from "./actions";
+import { runSimulation, fetchSimulationData, type SimulationData } from "./actions";
 import { getMaps } from "@/app/maps/actions";
 import { getRobots } from "@/app/robots/actions";
 import type { Map as MapType } from "@/components/maps/types";
 import type { Robot } from "@/components/robots/types";
-
-// Dynamically import SwarmJS Renderer to avoid SSR issues
-const SwarmJSRenderer = dynamic(
-  () => import("@/components/swarmjs/SwarmJSRenderer"),
-  { ssr: false }
-);
+import SimulationPlayer from "@/components/simulation/simulation-player";
 
 export default function SimulationPage() {
   const [backendStatus, setBackendStatus] = useState<"unknown" | "running" | "stopped">("unknown");
-  const [robotCount, setRobotCount] = useState(0);
   const [maps, setMaps] = useState<MapType[]>([]);
   const [robots, setRobots] = useState<Robot[]>([]);
   const [selectedMapId, setSelectedMapId] = useState<string>("");
   const [selectedRobotId, setSelectedRobotId] = useState<string>("");
+  const [selectedMap, setSelectedMap] = useState<MapType | null>(null);
   const [startX, setStartX] = useState<string>("");
   const [startY, setStartY] = useState<string>("");
   const [targetX, setTargetX] = useState<string>("");
   const [targetY, setTargetY] = useState<string>("");
   const [isPending, startTransition] = useTransition();
-  const [simulationKey, setSimulationKey] = useState(0);
   const [isLoadingSimulation, setIsLoadingSimulation] = useState(false);
+  const [simulationData, setSimulationData] = useState<SimulationData | null>(null);
 
   const checkBackendStatus = async () => {
     try {
@@ -77,9 +71,15 @@ export default function SimulationPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleRobotsUpdate = useCallback((count: number) => {
-    setRobotCount(count);
-  }, []);
+  // Update selected map when selection changes
+  useEffect(() => {
+    if (selectedMapId) {
+      const map = maps.find((m) => m.id === selectedMapId);
+      setSelectedMap(map || null);
+    } else {
+      setSelectedMap(null);
+    }
+  }, [selectedMapId, maps]);
 
   const handleRunSimulation = () => {
     startTransition(async () => {
@@ -105,6 +105,7 @@ export default function SimulationPage() {
 
       try {
         setIsLoadingSimulation(true);
+        setSimulationData(null);
         
         await runSimulation({
           robotId: selectedRobotId,
@@ -117,10 +118,15 @@ export default function SimulationPage() {
         
         toast.success("Simulation started! Loading visualization...");
         
-        // Force refresh the SwarmJSRenderer by incrementing key
-        // Wait a bit longer to ensure backend completes the simulation and writes the log
-        setTimeout(() => {
-          setSimulationKey(prev => prev + 1);
+        // Wait for backend to finish writing the log, then fetch simulation data
+        setTimeout(async () => {
+          const data = await fetchSimulationData();
+          if (data) {
+            setSimulationData(data);
+            toast.success("Simulation ready!");
+          } else {
+            toast.error("No simulation data available");
+          }
           setIsLoadingSimulation(false);
         }, 1500);
       } catch (error) {
@@ -271,73 +277,80 @@ export default function SimulationPage() {
       </Card>
 
       {/* Visualization Card */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Simulation Visualization</CardTitle>
-              <CardDescription>
-                Real-time pathfinding playback powered by SwarmJS
-              </CardDescription>
-            </div>
-            <div className="flex gap-2 items-center">
-              <Badge variant={backendStatus === "running" ? "default" : "secondary"}>
-                Backend: {backendStatus}
-              </Badge>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={checkBackendStatus}
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-            </div>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">Simulation Visualization</h2>
+            <p className="text-muted-foreground">
+              Real-time pathfinding playback with HTML Canvas
+            </p>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-
-            {/* SwarmJS Renderer */}
-            <div className="flex justify-center relative">
-              {isLoadingSimulation && (
-                <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10 rounded-lg">
-                  <div className="flex flex-col items-center gap-2">
-                    <RefreshCw className="h-8 w-8 animate-spin text-primary" />
-                    <p className="text-sm text-muted-foreground">Running simulation...</p>
-                  </div>
-                </div>
-              )}
-              <SwarmJSRenderer
-                key={simulationKey}
-                width={800}
-                height={600}
-                backendUrl="http://localhost:8080"
-                onRobotsUpdate={handleRobotsUpdate}
-                shouldFetchEvents={simulationKey > 0}
-              />
-            </div>
-
-            {/* Robot Count */}
-            <div className="text-center text-sm text-muted-foreground py-2">
-              Active Robots: {robotCount}
-            </div>
-
-            {/* Info Panel */}
-            <div className="border rounded-lg p-4 bg-muted/50">
-              <p className="font-semibold mb-2">How it works:</p>
-              <ul className="list-disc list-inside space-y-1 text-sm ml-4">
-                <li>Select a robot and map from the dashboard</li>
-                <li>Specify target coordinates and click &ldquo;Run Simulation&rdquo;</li>
-                <li>The backend calculates the optimal path using Dijkstra&apos;s algorithm</li>
-                <li>SwarmJS (Matter.js + D3.js) renders the simulation with real physics</li>
-                <li>Green square = start position, Red square = goal position</li>
-                <li>Purple circles = active robots navigating the map</li>
-                <li>The visualization replays the pathfinding execution step-by-step</li>
-              </ul>
-            </div>
+          <div className="flex gap-2 items-center">
+            <Badge variant={backendStatus === "running" ? "default" : "secondary"}>
+              Backend: {backendStatus}
+            </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={checkBackendStatus}
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        {isLoadingSimulation && (
+          <Card>
+            <CardContent className="flex items-center justify-center py-12">
+              <div className="text-center space-y-3">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                <p className="text-lg font-medium">Loading simulation...</p>
+                <p className="text-sm text-muted-foreground">
+                  Running pathfinding algorithm on the selected map
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {!isLoadingSimulation && simulationData && selectedMap && (
+          <SimulationPlayer
+            simulationData={simulationData}
+            mapWidth={selectedMap.width}
+            mapHeight={selectedMap.height}
+          />
+        )}
+
+        {!isLoadingSimulation && !simulationData && (
+          <Card>
+            <CardContent className="py-12">
+              <div className="text-center space-y-3">
+                <p className="text-lg font-medium text-muted-foreground">
+                  No simulation data yet
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Configure the simulation above and click &ldquo;Run Simulation&rdquo; to start
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Info Panel */}
+        <Card>
+          <CardContent className="py-4">
+            <p className="font-semibold mb-2">How it works:</p>
+            <ul className="list-disc list-inside space-y-1 text-sm ml-4 text-muted-foreground">
+              <li>Select a robot and map from the dashboard</li>
+              <li>Specify start and target coordinates, then click &ldquo;Run Simulation&rdquo;</li>
+              <li>The backend calculates the optimal path using Dijkstra&apos;s algorithm</li>
+              <li>The canvas animation renders the robot&apos;s movement along the computed path</li>
+              <li>Use the playback controls to pause, play, or adjust the speed</li>
+              <li>The visualization shows the robot&apos;s trail as it moves toward the target</li>
+            </ul>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

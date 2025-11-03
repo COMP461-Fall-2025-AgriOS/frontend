@@ -108,9 +108,10 @@ export async function fetchSimulationData(): Promise<SimulationData | null> {
     
     const text = await res.text();
     
-    // Try to parse as JSON first (new format)
+    // Try to parse as JSON first (backend format: {"events": [...]})
     try {
-      const events = JSON.parse(text);
+      const data = JSON.parse(text);
+      const events = data.events || data; // Handle both {"events": [...]} and [...] formats
       if (Array.isArray(events)) {
         return parseJSONEvents(events);
       }

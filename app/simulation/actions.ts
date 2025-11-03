@@ -107,6 +107,18 @@ export async function fetchSimulationData(): Promise<SimulationData | null> {
     }
     
     const text = await res.text();
+    
+    // Try to parse as JSON first (new format)
+    try {
+      const events = JSON.parse(text);
+      if (Array.isArray(events)) {
+        return parseJSONEvents(events);
+      }
+    } catch {
+      // Fall back to plain text parsing
+    }
+    
+    // Parse plain text format (old format)
     const lines = text.trim().split('\n');
     
     if (lines.length === 0) {
@@ -197,4 +209,88 @@ export async function fetchSimulationData(): Promise<SimulationData | null> {
     console.error("Failed to fetch simulation data:", error);
     return null;
   }
+}
+
+function parseJSONEvents(events: any[]): SimulationData | null {
+  // Find PLANNER_START event
+  const plannerStart = events.find(e => e.type === 'PLANNER_START');
+  if (!plannerStart) {
+    return null;
+  }
+  
+  // Parse PLANNER_START data
+  const data = plannerStart.data;
+  const robotIdMatch = data.match(/robotId="([^"]*)"/);
+  const robotNameMatch = data.match(/robotName="([^"]*)"/);
+  const startMatch = data.match(/start=\((\d+),(\d+)\)/);
+  const mapMatch = data.match(/map=\((\d+)x(\d+)\)/);
+  
+  if (!robotIdMatch || !robotNameMatch || !startMatch || !mapMatch) {
+    return null;
+  }
+  
+  const robotId = robotIdMatch[1] || "robot-1";
+  const robotName = robotNameMatch[1] || "Robot 1";
+  const startX = parseInt(startMatch[1]);
+  const startY = parseInt(startMatch[2]);
+  const mapWidth = parseInt(mapMatch[1]);
+  const mapHeight = parseInt(mapMatch[2]);
+  
+  // Determine robot type from name
+  const robotType = robotName.toLowerCase().includes("drone") ? "drone" : "rover";
+  
+  // Parse MOVE_EXECUTED events
+  const moveEvents = events
+    .filter(e => e.type === 'MOVE_EXECUTED')
+    .map(e => {
+      const xMatch = e.data.match(/x=(\d+)/);
+      const yMatch = e.data.match(/y=(\d+)/);
+      return {
+        x: xMatch ? parseInt(xMatch[1]) : 0,
+        y: yMatch ? parseInt(yMatch[1]) : 0,
+      };
+    });
+  
+  // If no move events, create a single frame at start position
+  if (moveEvents.length === 0) {
+    return {
+      mapId: "unknown",
+      mapName: `Map (${mapWidth}x${mapHeight})`,
+      frames: [
+        {
+          time: 0,
+          robots: [
+            {
+              id: robotId,
+              name: robotName,
+              type: robotType,
+              x: startX,
+              y: startY,
+            },
+          ],
+        },
+      ],
+    };
+  }
+  
+  // Create frames from move events (one frame per move)
+  const frameInterval = 100; // ms between frames
+  const frames: SimulationFrame[] = moveEvents.map((move, index) => ({
+    time: index * frameInterval,
+    robots: [
+      {
+        id: robotId,
+        name: robotName,
+        type: robotType,
+        x: move.x,
+        y: move.y,
+      },
+    ],
+  }));
+  
+  return {
+    mapId: "current",
+    mapName: `Pathfinding (${mapWidth}x${mapHeight})`,
+    frames,
+  };
 }

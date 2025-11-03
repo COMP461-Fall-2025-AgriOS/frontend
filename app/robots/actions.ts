@@ -1,7 +1,17 @@
 "use server";
 
-import type { Robot, RobotType, RobotAttributes } from "@/components/robots/types";
+import { RobotType, RobotAttributes, Robot } from "@/components/robots/types";
 import { revalidatePath } from "next/cache";
+
+// Backend robot format
+interface BackendRobot {
+  id: string;
+  name: string;
+  type: RobotType;
+  attributes: string;
+  mapId?: string;
+  position?: number[];
+}
 
 /**
  * Retrieves all robots from the system.
@@ -23,10 +33,10 @@ export async function getRobots(): Promise<Robot[]> {
     throw new Error("Failed to fetch robots");
   }
 
-  const rawRobots = await res.json();
+  const rawRobots: BackendRobot[] = await res.json();
   
   // Transform backend format to frontend format
-  const robots: Robot[] = rawRobots.map((robot: any) => {
+  const robots: Robot[] = rawRobots.map((robot: BackendRobot) => {
     // Parse attributes string into RobotAttributes object
     let attributes: RobotAttributes = { autonomy: 0, speed: 0 };
     if (robot.attributes && typeof robot.attributes === 'string') {
@@ -126,29 +136,13 @@ export async function deleteRobot(id: string) {
   revalidatePath("/robots");
 }
 
-export async function updateRobot(
-  id: string,
-  name: string,
-  type: RobotType,
-  attributes: RobotAttributes,
-  mapId?: string
-) {
-  // Format attributes as a string for the backend
-  const attributesString = `autonomy: ${attributes.autonomy}, speed: ${attributes.speed}`;
-  
+export async function updateRobotType(id: string, type: "rover" | "drone") {
   const res = await fetch(
     `${process.env.BACKEND_URL ?? ""}/robots/${id}`,
     {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ 
-        id,
-        name,
-        type,
-        attributes: attributesString,
-        mapId: mapId || "",
-        position: [0, 0] // Keep existing position or default
-      }),
+      body: JSON.stringify({ type }),
     }
   );
   if (!res.ok) {

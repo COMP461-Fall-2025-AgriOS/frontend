@@ -10,17 +10,15 @@ import { Input } from "@/components/ui/input"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import type { Map as MapType } from "./types"
-import { deleteMap, updateMap } from "@/app/maps/actions"
+import { deleteMap } from "@/app/maps/actions"
 
-function EditMapDialog({ map, onMapUpdated }: { map: MapType; onMapUpdated?: () => void }) {
+function EditMapDialog({ map }: { map: MapType }) {
   const [name, setName] = useState<string>(map.name)
   const [width, setWidth] = useState<string>(String(map.width))
   const [height, setHeight] = useState<string>(String(map.height))
   const [isPending, startTransition] = useTransition()
-  const [open, setOpen] = useState(false)
-  
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog>
       <DialogTrigger asChild>
         <Button variant="ghost" className="w-full justify-start">Edit</Button>
       </DialogTrigger>
@@ -31,8 +29,7 @@ function EditMapDialog({ map, onMapUpdated }: { map: MapType; onMapUpdated?: () 
         <div className="py-2 space-y-3">
           <div className="space-y-1">
             <div className="text-sm font-medium">Name</div>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Map name" disabled />
-            <p className="text-xs text-muted-foreground">Map name cannot be changed</p>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Map name" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
@@ -52,21 +49,11 @@ function EditMapDialog({ map, onMapUpdated }: { map: MapType; onMapUpdated?: () 
               startTransition(async () => {
                 const widthNum = Number(width)
                 const heightNum = Number(height)
-                if (Number.isNaN(widthNum) || Number.isNaN(heightNum) || widthNum <= 0 || heightNum <= 0) {
-                  toast.error("Width and height must be positive numbers")
+                if (Number.isNaN(widthNum) || Number.isNaN(heightNum)) {
+                  toast.error("Width and height must be numbers")
                   return
                 }
-                try {
-                  await updateMap(map.id, widthNum, heightNum)
-                  toast.success(`Map "${map.name}" updated successfully`)
-                  setOpen(false)
-                  if (onMapUpdated) {
-                    onMapUpdated()
-                  }
-                } catch (error) {
-                  console.error("Failed to update map:", error)
-                  toast.error("Failed to update map")
-                }
+                toast.info("Saved (mock)")
               })
             }
           >
@@ -119,7 +106,7 @@ function DeleteMapButton({ map, onMapDeleted }: { map: MapType; onMapDeleted?: (
   )
 }
 
-export function createMapsColumns(onMapChanged?: () => void): ColumnDef<MapType>[] {
+export function createMapsColumns(onMapDeleted?: () => void): ColumnDef<MapType>[] {
   return [
     {
       accessorKey: "id",
@@ -163,9 +150,9 @@ export function createMapsColumns(onMapChanged?: () => void): ColumnDef<MapType>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <EditMapDialog map={map} onMapUpdated={onMapChanged} />
+              <EditMapDialog map={map} />
               <DropdownMenuSeparator />
-              <DeleteMapButton map={map} onMapDeleted={onMapChanged} />
+              <DeleteMapButton map={map} onMapDeleted={onMapDeleted} />
             </DropdownMenuContent>
           </DropdownMenu>
         )

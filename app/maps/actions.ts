@@ -52,34 +52,6 @@ export async function getMaps(): Promise<Map[]> {
 }
 
 /**
- * Updates a map in the system.
- * 
- * @param id - The unique identifier of the map to update
- * @param width - The new width of the map in units
- * @param height - The new height of the map in units
- * 
- * @throws {Error} Throws an error if the API request fails or returns a non-ok response
- *
- * @returns Promise<void> - Resolves when the map is successfully updated and cache is revalidated
- */
-export async function updateMap(id: string, width: number, height: number) {
-  const res = await fetch(
-    `${process.env.BACKEND_URL ?? ""}/map/${id}`,
-    {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ width, height }),
-    }
-  );
-  if (!res.ok) {
-    throw new Error("Failed to update map");
-  }
-  revalidatePath("/map");
-}
-
-/**
  * Deletes a map from the system.
  * 
  * @param id - The unique identifier of the map to delete

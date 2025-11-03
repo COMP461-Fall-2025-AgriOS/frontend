@@ -5,9 +5,10 @@ function getBackendUrl() {
   return url ?? 'http://localhost:3001'
 }
 
-export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const res = await fetch(`${getBackendUrl()}/robots/${params.id}`, { cache: 'no-store' })
+    const { id } = await params;
+    const res = await fetch(`${getBackendUrl()}/robots/${id}`, { cache: 'no-store' })
     const text = await res.text()
     return new NextResponse(text, {
       status: res.status,
@@ -18,10 +19,11 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const body = await req.text()
-    const res = await fetch(`${getBackendUrl()}/robots/${params.id}`, {
+    const res = await fetch(`${getBackendUrl()}/robots/${id}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
       body,
@@ -36,9 +38,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const res = await fetch(`${getBackendUrl()}/robots/${params.id}`, { method: 'DELETE' })
+    const { id } = await params;
+    const res = await fetch(`${getBackendUrl()}/robots/${id}`, { method: 'DELETE' })
     const text = await res.text()
     return new NextResponse(text, {
       status: res.status,

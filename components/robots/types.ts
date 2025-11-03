@@ -31,7 +31,6 @@ export const ATTRIBUTE_FIELDS: Record<
     min: "0",
   },
 };
-
 // Define the robot types as a const array - add new types here
 export const ROBOT_TYPES = ["rover", "drone"] as const;
 
@@ -46,3 +45,4 @@ export interface Robot {
   mapId?: string;
   position?: number[];
 }
+

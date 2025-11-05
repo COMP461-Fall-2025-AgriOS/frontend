@@ -88,11 +88,7 @@ export default function SimulationPage() {
   return (
     <div className="flex flex-col gap-6 p-8 min-h-screen">
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold">Robot Pathfinding Simulation</h1>
-        <p className="text-muted-foreground">
-          Select a map and run the pathfinding simulation to see robots in
-          action.
-        </p>
+        <h1 className="text-3xl font-bold">Pathfinding simulation</h1>
       </div>
 
       <Card className="w-full max-w-2xl">

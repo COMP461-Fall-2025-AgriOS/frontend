@@ -39,6 +39,7 @@ export default function MapSnapshot() {
     width: 600,
     height: 600,
   });
+  const [rotation, setRotation] = useState(0);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
   // Geocode address to coordinates
@@ -179,6 +180,19 @@ export default function MapSnapshot() {
     setCaptureBox((prev) => ({ ...prev, [dimension]: clampedValue }));
   };
 
+  // Handle rotation input changes with validation
+  const handleRotationChange = (value: string) => {
+    const numValue = parseFloat(value);
+    if (isNaN(numValue) || value === "") {
+      // Allow temporary empty state for editing
+      setRotation(0);
+      return;
+    }
+    // Normalize to 0-360 range
+    const normalizedValue = ((numValue % 360) + 360) % 360;
+    setRotation(normalizedValue);
+  };
+
   // Capture snapshot of current map view
   const captureSnapshot = useCallback(async () => {
     if (!mapRef.current) return;
@@ -204,7 +218,7 @@ export default function MapSnapshot() {
       const bounds = map.getBounds();
       const center = map.getCenter();
       const zoom = map.getZoom();
-      const bearing = map.getBearing();
+      const bearing = rotation; // Use the rotation state instead of map bearing
       const pitch = map.getPitch();
 
       // Build Static Images API URL
@@ -313,6 +327,23 @@ export default function MapSnapshot() {
             <span className="text-xs text-muted-foreground">(1-1280 px)</span>
           </div>
 
+          <div className="flex items-center gap-2">
+            <Label htmlFor="rotation" className="text-sm font-medium shrink-0">
+              Rotation:
+            </Label>
+            <Input
+              id="rotation"
+              type="number"
+              min={0}
+              max={360}
+              step={1}
+              value={rotation}
+              onChange={(e) => handleRotationChange(e.target.value)}
+              className="w-24"
+            />
+            <span className="text-xs text-muted-foreground">degrees</span>
+          </div>
+
           <Button
             onClick={captureSnapshot}
             disabled={isCapturing}
@@ -335,10 +366,11 @@ export default function MapSnapshot() {
         <Map
           ref={mapRef}
           {...viewState}
+          bearing={rotation}
           onMove={(evt) => setViewState(evt.viewState)}
           mapboxAccessToken={MAPBOX_TOKEN}
           style={{ width: "100%", height: "100%" }}
-          mapStyle="mapbox://styles/mapbox/satellite-v9"
+          mapStyle="mapbox://styles/mapbox/satellite-streets-v12"
         />
 
         {/* Capture Box Overlay */}
@@ -368,7 +400,7 @@ export default function MapSnapshot() {
 
       {/* Snapshot Preview */}
       {snapshotUrl && (
-        <div className="absolute bottom-4 right-4 w-full max-w-sm">
+        <div className="absolute bottom-4 right-4 w-full max-w-sm max-h-[calc(100vh-8rem)] overflow-auto">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -387,7 +419,7 @@ export default function MapSnapshot() {
               <img
                 src={snapshotUrl}
                 alt="Map snapshot"
-                className="w-full border rounded-md"
+                className="w-full h-auto max-h-[calc(100vh-16rem)] object-contain border rounded-md"
               />
             </CardContent>
           </Card>

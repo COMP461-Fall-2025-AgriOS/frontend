@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Search, Camera, X } from "lucide-react";
+import { Search, Camera, X, ArrowLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 // Replace with your Mapbox access token
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -23,9 +24,41 @@ interface CaptureBox {
   height: number;
 }
 
-export default function MapSnapshot() {
+interface CapturedMapData {
+  imageUrl: string;
+  bounds: {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  } | null;
+  center: {
+    longitude: number;
+    latitude: number;
+  };
+  zoom: number;
+  bearing: number;
+  pitch: number;
+  dimensions: {
+    width: number;
+    height: number;
+  };
+}
+
+interface MapSnapshotProps {
+  onCapture?: (data: CapturedMapData) => void;
+  onClose?: () => void;
+}
+
+export default function MapSnapshot({
+  onCapture,
+  onClose,
+}: MapSnapshotProps = {}) {
   const mapRef = useRef<MapRef>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const [shouldReturnToDashboard, setShouldReturnToDashboard] = useState(false);
+
   const [viewState, setViewState] = useState<ViewState>({
     longitude: -98.5795,
     latitude: 39.8283,
@@ -34,6 +67,9 @@ export default function MapSnapshot() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
+  const [capturedData, setCapturedData] = useState<CapturedMapData | null>(
+    null
+  );
   const [isCapturing, setIsCapturing] = useState(false);
   const [captureBox, setCaptureBox] = useState<CaptureBox>({
     width: 600,
@@ -41,6 +77,23 @@ export default function MapSnapshot() {
   });
   const [rotation, setRotation] = useState(0);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+
+  // Check if we should return to dashboard after capture
+  useEffect(() => {
+    const shouldReturn = sessionStorage.getItem("returnToDashboard");
+    if (shouldReturn === "true") {
+      setShouldReturnToDashboard(true);
+    }
+  }, []);
+
+  // Handle using the captured snapshot
+  const handleUseSnapshot = () => {
+    if (capturedData && shouldReturnToDashboard) {
+      sessionStorage.setItem("capturedMapData", JSON.stringify(capturedData));
+      sessionStorage.removeItem("returnToDashboard");
+      router.push("/dashboard");
+    }
+  };
 
   // Geocode address to coordinates
   const handleSearch = async () => {
@@ -228,7 +281,7 @@ export default function MapSnapshot() {
       setSnapshotUrl(staticImageUrl);
 
       // Here you would send to your backend
-      const snapshotData = {
+      const snapshotData: CapturedMapData = {
         imageUrl: staticImageUrl,
         bounds: bounds
           ? {
@@ -248,7 +301,17 @@ export default function MapSnapshot() {
         dimensions: { width, height },
       };
 
+      // Store the captured data
+      setCapturedData(snapshotData);
+
       console.log("Snapshot data:", snapshotData);
+
+      // Call the onCapture callback if provided
+      if (onCapture) {
+        onCapture(snapshotData);
+      }
+
+      // Don't navigate automatically - let user confirm with button in the card
 
       // Example: Send to your backend
       // await fetch('/api/process-map', {
@@ -262,20 +325,43 @@ export default function MapSnapshot() {
     } finally {
       setIsCapturing(false);
     }
-  }, [captureBox]);
+  }, [captureBox, rotation, onCapture, shouldReturnToDashboard, router]);
 
   return (
     <div className="flex flex-col h-screen">
       {/* Top Bar with Search and Capture Controls */}
       <div className="p-3 bg-background border-b space-y-2">
-        {/* Title and Search Row */}
-        <div className="flex items-center gap-4 max-w-6xl mx-auto">
-          <div className="shrink-0">
-            <h1 className="text-xl font-bold">Map Snapshot Tool</h1>
-            <p className="text-xs text-muted-foreground">
-              Search, adjust dimensions, frame your area, then capture.
-            </p>
+        {/* Title and Close Button Row */}
+        <div className="flex items-center justify-between max-w-full">
+          <div className="flex items-center gap-2 shrink-0">
+            {shouldReturnToDashboard && (
+              <Button
+                onClick={() => {
+                  sessionStorage.removeItem("returnToDashboard");
+                  router.push("/dashboard");
+                }}
+                variant="ghost"
+                size="sm"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            )}
+            <div>
+              <h1 className="text-xl font-bold">Map Snapshot Tool</h1>
+              <p className="text-xs text-muted-foreground">
+                Search, adjust dimensions, frame your area, then capture.
+              </p>
+            </div>
           </div>
+          {onClose && (
+            <Button onClick={onClose} variant="ghost" size="sm">
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+
+        {/* Search Row */}
+        <div className="flex items-center gap-4 w-full">
           <div className="flex-1 flex gap-2">
             <Input
               type="text"
@@ -298,7 +384,7 @@ export default function MapSnapshot() {
         </div>
 
         {/* Capture Settings and Current Coordinates */}
-        <div className="flex items-center gap-6 max-w-6xl mx-auto">
+        <div className="flex items-center gap-6 w-full">
           <div className="flex items-center gap-4">
             <Label htmlFor="width" className="text-sm font-medium shrink-0">
               Width:
@@ -406,7 +492,10 @@ export default function MapSnapshot() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">Captured Snapshot</CardTitle>
                 <Button
-                  onClick={() => setSnapshotUrl(null)}
+                  onClick={() => {
+                    setSnapshotUrl(null);
+                    setCapturedData(null);
+                  }}
                   variant="ghost"
                   size="sm"
                   className="h-auto p-1"
@@ -415,12 +504,21 @@ export default function MapSnapshot() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
               <img
                 src={snapshotUrl}
                 alt="Map snapshot"
                 className="w-full h-auto max-h-[calc(100vh-16rem)] object-contain border rounded-md"
               />
+              {shouldReturnToDashboard && (
+                <Button
+                  onClick={handleUseSnapshot}
+                  className="w-full"
+                  variant="default"
+                >
+                  Use this snapshot
+                </Button>
+              )}
             </CardContent>
           </Card>
         </div>

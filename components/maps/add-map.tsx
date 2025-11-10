@@ -62,6 +62,7 @@ export default function AddMap({
   const [name, setName] = useState<string>("");
   const [width, setWidth] = useState<string>("");
   const [height, setHeight] = useState<string>("");
+  const [mapUrl, setMapUrl] = useState<string>("");
   const router = useRouter();
 
   // Check for captured map data on mount and when component regains focus
@@ -123,6 +124,7 @@ export default function AddMap({
 
     setWidth(calculatedWidth.toString());
     setHeight(calculatedHeight.toString());
+    setMapUrl(data.imageUrl);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -143,6 +145,7 @@ export default function AddMap({
       name: name.trim(),
       width: Number(width),
       height: Number(height),
+      mapUrl: mapUrl,
     };
 
     await onSubmit(mapData);
@@ -151,6 +154,7 @@ export default function AddMap({
     setName("");
     setWidth("");
     setHeight("");
+    setMapUrl("");
   };
 
   return (

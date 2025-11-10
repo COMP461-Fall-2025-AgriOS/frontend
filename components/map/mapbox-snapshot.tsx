@@ -72,8 +72,8 @@ export default function MapSnapshot({
   );
   const [isCapturing, setIsCapturing] = useState(false);
   const [captureBox, setCaptureBox] = useState<CaptureBox>({
-    width: 600,
-    height: 600,
+    width: 500,
+    height: 500,
   });
   const [rotation, setRotation] = useState(0);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });

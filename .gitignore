@@ -43,3 +43,5 @@ node_modules/
 .next/
 .env*
 .vercel/
+.env
+.mcp.json

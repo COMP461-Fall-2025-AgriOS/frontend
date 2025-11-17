@@ -19,10 +19,11 @@ import {
   getPluginSource,
   savePluginSource,
   compilePlugin,
-  getPluginTemplate
+  getPluginTemplate,
+  generatePluginWithAI
 } from "./actions";
 
-type TabType = 'manage' | 'develop' | 'upload';
+type TabType = 'manage' | 'develop' | 'upload' | 'docs';
 
 export default function PluginsPage() {
   const [plugins, setPlugins] = useState<Plugin[]>([]);
@@ -172,7 +173,8 @@ export default function PluginsPage() {
   const tabs = [
     { id: 'manage' as TabType, label: 'Manage Plugins' },
     { id: 'develop' as TabType, label: 'Develop Plugin' },
-    { id: 'upload' as TabType, label: 'Upload Plugin' }
+    { id: 'upload' as TabType, label: 'Upload Plugin' },
+    { id: 'docs' as TabType, label: 'Documentation' }
   ];
 
   return (
@@ -289,11 +291,180 @@ export default function PluginsPage() {
             onCompile={handleCompile}
             onHotLoad={handleHotLoadFromEditor}
             onLoadTemplate={handleLoadTemplate}
+            onGenerateWithAI={generatePluginWithAI}
           />
         )}
 
         {activeTab === 'upload' && (
           <PluginUpload onUploadComplete={handleUploadComplete} />
+        )}
+
+        {activeTab === 'docs' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Plugin Development Guide</CardTitle>
+              <CardDescription>
+                Learn how to create custom plugins for AgriOS
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Overview */}
+              <section>
+                <h3 className="text-lg font-semibold mb-2">Overview</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  AgriOS plugins are dynamically loaded shared objects (.so files) that implement a minimal C API.
+                  Plugins can register callbacks that are invoked when the module is triggered, allowing you to extend
+                  the system with custom functionality for agricultural robotics.
+                </p>
+              </section>
+
+              {/* Required API */}
+              <section>
+                <h3 className="text-lg font-semibold mb-2">Required API</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  All plugins must implement two C functions:
+                </p>
+                <div className="space-y-3">
+                  <div className="bg-muted p-4 rounded-lg">
+                    <code className="text-sm">
+                      <span className="text-blue-600">int</span> plugin_start(<span className="text-blue-600">const</span> HostAPI* api, <span className="text-blue-600">const char</span>* moduleId)
+                    </code>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Called when the host loads the plugin. Return 0 on success, non-zero on failure.
+                    </p>
+                  </div>
+                  <div className="bg-muted p-4 rounded-lg">
+                    <code className="text-sm">
+                      <span className="text-blue-600">void</span> plugin_stop()
+                    </code>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Called when the host unloads the plugin. Clean up resources here.
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              {/* HostAPI Callbacks */}
+              <section>
+                <h3 className="text-lg font-semibold mb-2">HostAPI Callbacks</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  The host provides callbacks through the HostAPI structure:
+                </p>
+                <div className="space-y-2 text-sm">
+                  <div className="p-3 bg-muted rounded">
+                    <code className="font-mono">register_callback(host_ctx, moduleId, callback_fn)</code>
+                    <p className="text-xs text-muted-foreground mt-1">Register a callback for this module</p>
+                  </div>
+                  <div className="p-3 bg-muted rounded">
+                    <code className="font-mono">unregister_callback(host_ctx, moduleId)</code>
+                    <p className="text-xs text-muted-foreground mt-1">Unregister the module callback</p>
+                  </div>
+                  <div className="p-3 bg-muted rounded">
+                    <code className="font-mono">log(host_ctx, level, message)</code>
+                    <p className="text-xs text-muted-foreground mt-1">Log a message through the host (levels: 0=INFO, 1=WARN, 2=ERROR, 3=DEBUG)</p>
+                  </div>
+                </div>
+              </section>
+
+              {/* Compilation */}
+              <section>
+                <h3 className="text-lg font-semibold mb-2">Compilation</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Compile your plugin as a shared library with these flags:
+                </p>
+                <div className="bg-muted p-4 rounded-lg">
+                  <code className="text-sm font-mono">
+                    g++ -I../../.. -fPIC -Wall -O2 -std=c++17 -shared -o my_plugin.so my_plugin.cpp
+                  </code>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  The <code>-I../../..</code> flag ensures access to PluginAPI.h from the plugins directory.
+                </p>
+              </section>
+
+              {/* Example */}
+              <section>
+                <h3 className="text-lg font-semibold mb-2">Example Plugin</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  See the watering plugin example in <code>plugins/examples/watering/</code> for a complete implementation.
+                </p>
+                <div className="bg-muted p-4 rounded-lg text-xs font-mono overflow-x-auto">
+                  <pre>{`#include "plugins/PluginAPI.h"
+#include <string>
+
+static const HostAPI* g_api = nullptr;
+static std::string g_moduleId;
+
+static void plugin_callback(const char* context) {
+    // Your plugin logic here
+    if (g_api && g_api->log) {
+        g_api->log(g_api->host_ctx, 0,
+            ("Plugin invoked: " + g_moduleId).c_str());
+    }
+}
+
+extern "C" int plugin_start(const HostAPI* api, const char* moduleId) {
+    if (!api || !moduleId) return -1;
+    g_api = api;
+    g_moduleId = moduleId;
+
+    if (g_api->register_callback) {
+        g_api->register_callback(g_api->host_ctx, moduleId, &plugin_callback);
+    }
+    return 0;
+}
+
+extern "C" void plugin_stop() {
+    if (g_api && g_api->unregister_callback) {
+        g_api->unregister_callback(g_api->host_ctx, g_moduleId.c_str());
+    }
+    g_moduleId.clear();
+    g_api = nullptr;
+}`}</pre>
+                </div>
+              </section>
+
+              {/* Best Practices */}
+              <section>
+                <h3 className="text-lg font-semibold mb-2">Best Practices</h3>
+                <ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground">
+                  <li>Use the same compiler and standard library versions as the host when possible</li>
+                  <li>Keep plugin initialization fast; spawn worker threads for long-running operations</li>
+                  <li>Always check pointers before dereferencing (api, moduleId, callbacks)</li>
+                  <li>Return 0 from plugin_start only on successful initialization</li>
+                  <li>Clean up all resources in plugin_stop</li>
+                  <li>Use the host&apos;s log function instead of stdout/stderr for debugging</li>
+                  <li>Handle context data safely (may be empty or malformed JSON)</li>
+                </ul>
+              </section>
+
+              {/* Deployment */}
+              <section>
+                <h3 className="text-lg font-semibold mb-2">Deployment</h3>
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <h4 className="font-medium mb-1">Option 1: Upload Compiled Plugin</h4>
+                    <p className="text-muted-foreground">
+                      Use the &quot;Upload Plugin&quot; tab to upload a pre-compiled .so file.
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium mb-1">Option 2: Develop and Compile</h4>
+                    <p className="text-muted-foreground">
+                      Use the &quot;Develop Plugin&quot; tab to write, compile, and hot-load plugins directly from the UI.
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium mb-1">Option 3: Server Startup</h4>
+                    <p className="text-muted-foreground">
+                      Place .so files in the plugins directory and start the backend with
+                      <code className="mx-1 px-1 bg-background rounded">--plugins-dir ./plugins</code>
+                    </p>
+                  </div>
+                </div>
+              </section>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>

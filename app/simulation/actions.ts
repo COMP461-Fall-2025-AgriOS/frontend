@@ -61,14 +61,21 @@ export async function runSimulation(params: SimulationParams) {
 
 /**
  * Clears the simulation log
- * 
+ *
  * @throws {Error} Throws an error if the API request fails or returns a non-ok response
  * @returns Promise<void> - Resolves when the log is successfully cleared
  */
 export async function clearSimulationLog() {
-  // This endpoint would need to be implemented in the backend
-  // For now, we'll just return success
-  return Promise.resolve();
+  const res = await fetch(
+    `${process.env.BACKEND_URL ?? "http://localhost:8080"}/simulation/clear`,
+    {
+      method: "POST",
+    }
+  );
+
+  if (!res.ok) {
+    console.warn("Failed to clear simulation log");
+  }
 }
 
 interface SimulationRobot {
@@ -101,12 +108,13 @@ export async function fetchSimulationData(): Promise<SimulationData | null> {
       `${process.env.BACKEND_URL ?? "http://localhost:8080"}/simulation/events`,
       { cache: "no-store" }
     );
-    
+
     if (!res.ok) {
       throw new Error("Failed to fetch simulation events");
     }
-    
+
     const text = await res.text();
+    console.log("Simulation events response:", text);
     
     // Try to parse as JSON first (backend format: {"events": [...]})
     try {
@@ -121,86 +129,109 @@ export async function fetchSimulationData(): Promise<SimulationData | null> {
     
     // Parse plain text format (old format)
     const lines = text.trim().split('\n');
-    
+
     if (lines.length === 0) {
       return null;
     }
-    
-    // Parse PLANNER_START to get robot info
-    const plannerStartLine = lines.find(line => line.includes('PLANNER_START'));
-    if (!plannerStartLine) {
+
+    // Parse ALL PLANNER_START events to get info about all robots
+    const plannerStartLines = lines.filter(line => line.includes('PLANNER_START'));
+    if (plannerStartLines.length === 0) {
       return null;
     }
-    
-    const robotIdMatch = plannerStartLine.match(/robotId="([^"]*)"/);
-    const robotNameMatch = plannerStartLine.match(/robotName="([^"]*)"/);
-    const startMatch = plannerStartLine.match(/start=\((\d+),(\d+)\)/);
-    const goalMatch = plannerStartLine.match(/goal=\((\d+),(\d+)\)/);
-    const mapMatch = plannerStartLine.match(/map=\((\d+)x(\d+)\)/);
-    
-    if (!robotIdMatch || !robotNameMatch || !startMatch || !mapMatch) {
+
+    // Build robot info map
+    const robotInfoMap: Map<string, { name: string; type: "rover" | "drone"; startX: number; startY: number }> = new Map();
+    let mapWidth = 0;
+    let mapHeight = 0;
+
+    for (const line of plannerStartLines) {
+      const robotIdMatch = line.match(/robotId="([^"]*)"/);
+      const robotNameMatch = line.match(/robotName="([^"]*)"/);
+      const startMatch = line.match(/start=\((\d+),(\d+)\)/);
+      const mapMatch = line.match(/map=\((\d+)x(\d+)\)/);
+
+      if (robotIdMatch && robotNameMatch && startMatch && mapMatch) {
+        const robotId = robotIdMatch[1];
+        const robotName = robotNameMatch[1];
+        const startX = parseInt(startMatch[1]);
+        const startY = parseInt(startMatch[2]);
+        mapWidth = parseInt(mapMatch[1]);
+        mapHeight = parseInt(mapMatch[2]);
+
+        const robotType = robotName.toLowerCase().includes("drone") ? "drone" : "rover";
+
+        robotInfoMap.set(robotId, { name: robotName, type: robotType, startX, startY });
+      }
+    }
+
+    if (robotInfoMap.size === 0) {
       return null;
     }
-    
-    const robotId = robotIdMatch[1] || "robot-1";
-    const robotName = robotNameMatch[1] || "Robot 1";
-    const startX = parseInt(startMatch[1]);
-    const startY = parseInt(startMatch[2]);
-    const mapWidth = parseInt(mapMatch[1]);
-    const mapHeight = parseInt(mapMatch[2]);
-    
-    // Determine robot type from name
-    const robotType = robotName.toLowerCase().includes("drone") ? "drone" : "rover";
-    
-    // Parse MOVE_EXECUTED events to get the path
-    const moveEvents = lines
-      .filter(line => line.includes('MOVE_EXECUTED'))
-      .map(line => {
+
+    // Parse MOVE_EXECUTED events grouped by robot
+    const robotPaths: Map<string, Array<{ x: number; y: number }>> = new Map();
+
+    for (const [robotId, info] of robotInfoMap.entries()) {
+      robotPaths.set(robotId, [{ x: info.startX, y: info.startY }]);
+    }
+
+    for (const line of lines) {
+      if (line.includes('MOVE_EXECUTED')) {
+        const robotIdMatch = line.match(/robotId="([^"]*)"/);
         const xMatch = line.match(/x=(\d+)/);
         const yMatch = line.match(/y=(\d+)/);
-        return {
-          x: xMatch ? parseInt(xMatch[1]) : 0,
-          y: yMatch ? parseInt(yMatch[1]) : 0,
-        };
-      });
-    
-    // If no move events, create a single frame at start position
-    if (moveEvents.length === 0) {
-      return {
-        mapId: "unknown",
-        mapName: `Map (${mapWidth}x${mapHeight})`,
-        frames: [
-          {
-            time: 0,
-            robots: [
-              {
-                id: robotId,
-                name: robotName,
-                type: robotType,
-                x: startX,
-                y: startY,
-              },
-            ],
-          },
-        ],
-      };
+
+        if (robotIdMatch && xMatch && yMatch) {
+          const robotId = robotIdMatch[1];
+          const x = parseInt(xMatch[1]);
+          const y = parseInt(yMatch[1]);
+
+          if (robotPaths.has(robotId)) {
+            robotPaths.get(robotId)!.push({ x, y });
+          }
+        }
+      }
     }
-    
-    // Create frames from move events (one frame per move)
+
+    // Find maximum path length to determine total frames
+    let maxPathLength = 0;
+    for (const path of robotPaths.values()) {
+      maxPathLength = Math.max(maxPathLength, path.length);
+    }
+
+    if (maxPathLength === 0) {
+      return null;
+    }
+
+    // Create synchronized frames where each frame contains all robot positions
     const frameInterval = 100; // ms between frames
-    const frames: SimulationFrame[] = moveEvents.map((move, index) => ({
-      time: index * frameInterval,
-      robots: [
-        {
+    const frames: SimulationFrame[] = [];
+
+    for (let frameIndex = 0; frameIndex < maxPathLength; frameIndex++) {
+      const robotsInFrame: SimulationRobot[] = [];
+
+      for (const [robotId, info] of robotInfoMap.entries()) {
+        const path = robotPaths.get(robotId)!;
+        // If robot finished, keep it at final position
+        const pathIndex = Math.min(frameIndex, path.length - 1);
+        const pos = path[pathIndex];
+
+        robotsInFrame.push({
           id: robotId,
-          name: robotName,
-          type: robotType,
-          x: move.x,
-          y: move.y,
-        },
-      ],
-    }));
-    
+          name: info.name,
+          type: info.type,
+          x: pos.x,
+          y: pos.y,
+        });
+      }
+
+      frames.push({
+        time: frameIndex * frameInterval,
+        robots: robotsInFrame,
+      });
+    }
+
     return {
       mapId: "current",
       mapName: `Pathfinding (${mapWidth}x${mapHeight})`,
@@ -213,82 +244,105 @@ export async function fetchSimulationData(): Promise<SimulationData | null> {
 }
 
 function parseJSONEvents(events: any[]): SimulationData | null {
-  // Find PLANNER_START event
-  const plannerStart = events.find(e => e.type === 'PLANNER_START');
-  if (!plannerStart) {
+  // Find ALL PLANNER_START events
+  const plannerStarts = events.filter(e => e.type === 'PLANNER_START');
+  if (plannerStarts.length === 0) {
     return null;
   }
-  
-  // Parse PLANNER_START data
-  const data = plannerStart.data;
-  const robotIdMatch = data.match(/robotId="([^"]*)"/);
-  const robotNameMatch = data.match(/robotName="([^"]*)"/);
-  const startMatch = data.match(/start=\((\d+),(\d+)\)/);
-  const mapMatch = data.match(/map=\((\d+)x(\d+)\)/);
-  
-  if (!robotIdMatch || !robotNameMatch || !startMatch || !mapMatch) {
+
+  // Build robot info map
+  const robotInfoMap: Map<string, { name: string; type: "rover" | "drone"; startX: number; startY: number }> = new Map();
+  let mapWidth = 0;
+  let mapHeight = 0;
+
+  for (const plannerStart of plannerStarts) {
+    const data = plannerStart.data;
+    const robotIdMatch = data.match(/robotId="([^"]*)"/);
+    const robotNameMatch = data.match(/robotName="([^"]*)"/);
+    const startMatch = data.match(/start=\((\d+),(\d+)\)/);
+    const mapMatch = data.match(/map=\((\d+)x(\d+)\)/);
+
+    if (robotIdMatch && robotNameMatch && startMatch && mapMatch) {
+      const robotId = robotIdMatch[1];
+      const robotName = robotNameMatch[1];
+      const startX = parseInt(startMatch[1]);
+      const startY = parseInt(startMatch[2]);
+      mapWidth = parseInt(mapMatch[1]);
+      mapHeight = parseInt(mapMatch[2]);
+
+      const robotType = robotName.toLowerCase().includes("drone") ? "drone" : "rover";
+
+      robotInfoMap.set(robotId, { name: robotName, type: robotType, startX, startY });
+    }
+  }
+
+  if (robotInfoMap.size === 0) {
     return null;
   }
-  
-  const robotId = robotIdMatch[1] || "robot-1";
-  const robotName = robotNameMatch[1] || "Robot 1";
-  const startX = parseInt(startMatch[1]);
-  const startY = parseInt(startMatch[2]);
-  const mapWidth = parseInt(mapMatch[1]);
-  const mapHeight = parseInt(mapMatch[2]);
-  
-  // Determine robot type from name
-  const robotType = robotName.toLowerCase().includes("drone") ? "drone" : "rover";
-  
-  // Parse MOVE_EXECUTED events
-  const moveEvents = events
-    .filter(e => e.type === 'MOVE_EXECUTED')
-    .map(e => {
-      const xMatch = e.data.match(/x=(\d+)/);
-      const yMatch = e.data.match(/y=(\d+)/);
-      return {
-        x: xMatch ? parseInt(xMatch[1]) : 0,
-        y: yMatch ? parseInt(yMatch[1]) : 0,
-      };
-    });
-  
-  // If no move events, create a single frame at start position
-  if (moveEvents.length === 0) {
-    return {
-      mapId: "unknown",
-      mapName: `Map (${mapWidth}x${mapHeight})`,
-      frames: [
-        {
-          time: 0,
-          robots: [
-            {
-              id: robotId,
-              name: robotName,
-              type: robotType,
-              x: startX,
-              y: startY,
-            },
-          ],
-        },
-      ],
-    };
+
+  // Parse MOVE_EXECUTED events grouped by robot
+  const robotPaths: Map<string, Array<{ x: number; y: number }>> = new Map();
+
+  for (const [robotId, info] of robotInfoMap.entries()) {
+    robotPaths.set(robotId, [{ x: info.startX, y: info.startY }]);
   }
-  
-  // Create frames from move events (one frame per move)
+
+  for (const event of events) {
+    if (event.type === 'MOVE_EXECUTED') {
+      const robotIdMatch = event.data.match(/robotId="([^"]*)"/);
+      const xMatch = event.data.match(/x=(\d+)/);
+      const yMatch = event.data.match(/y=(\d+)/);
+
+      if (robotIdMatch && xMatch && yMatch) {
+        const robotId = robotIdMatch[1];
+        const x = parseInt(xMatch[1]);
+        const y = parseInt(yMatch[1]);
+
+        if (robotPaths.has(robotId)) {
+          robotPaths.get(robotId)!.push({ x, y });
+        }
+      }
+    }
+  }
+
+  // Find maximum path length to determine total frames
+  let maxPathLength = 0;
+  for (const path of robotPaths.values()) {
+    maxPathLength = Math.max(maxPathLength, path.length);
+  }
+
+  if (maxPathLength === 0) {
+    return null;
+  }
+
+  // Create synchronized frames where each frame contains all robot positions
   const frameInterval = 100; // ms between frames
-  const frames: SimulationFrame[] = moveEvents.map((move, index) => ({
-    time: index * frameInterval,
-    robots: [
-      {
+  const frames: SimulationFrame[] = [];
+
+  for (let frameIndex = 0; frameIndex < maxPathLength; frameIndex++) {
+    const robotsInFrame: SimulationRobot[] = [];
+
+    for (const [robotId, info] of robotInfoMap.entries()) {
+      const path = robotPaths.get(robotId)!;
+      // If robot finished, keep it at final position
+      const pathIndex = Math.min(frameIndex, path.length - 1);
+      const pos = path[pathIndex];
+
+      robotsInFrame.push({
         id: robotId,
-        name: robotName,
-        type: robotType,
-        x: move.x,
-        y: move.y,
-      },
-    ],
-  }));
-  
+        name: info.name,
+        type: info.type,
+        x: pos.x,
+        y: pos.y,
+      });
+    }
+
+    frames.push({
+      time: frameIndex * frameInterval,
+      robots: robotsInFrame,
+    });
+  }
+
   return {
     mapId: "current",
     mapName: `Pathfinding (${mapWidth}x${mapHeight})`,

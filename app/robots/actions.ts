@@ -150,3 +150,26 @@ export async function updateRobotType(id: string, type: "rover" | "drone") {
   }
   revalidatePath("/robots");
 }
+
+export async function resetRobotPosition(id: string) {
+  const res = await fetch(
+    `${process.env.BACKEND_URL ?? ""}/robots/${id}`,
+    {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ position: [0, 0] }),
+    }
+  );
+  if (!res.ok) {
+    throw new Error("Failed to reset robot position");
+  }
+}
+
+export async function resetAllRobotPositions(mapId: string) {
+  const robots = await getRobots();
+  const mapRobots = robots.filter(r => r.mapId === mapId);
+
+  await Promise.all(
+    mapRobots.map(robot => resetRobotPosition(robot.id))
+  );
+}

@@ -6,17 +6,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Play, Pause, RotateCcw } from "lucide-react";
+import type { TaskArea } from "@/components/tasks/types";
 
 interface SimulationPlayerProps {
   simulationData: SimulationData;
   mapWidth: number;
   mapHeight: number;
+  mapUrl?: string;
+  taskAreas?: TaskArea[];
 }
 
 export default function SimulationPlayer({
   simulationData,
   mapWidth,
   mapHeight,
+  mapUrl,
+  taskAreas = [],
 }: SimulationPlayerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -24,6 +29,7 @@ export default function SimulationPlayer({
   const [speed, setSpeed] = useState(1);
   const animationRef = useRef<number | null>(null);
   const startTimeRef = useRef<number | null>(null);
+  const [mapImage, setMapImage] = useState<HTMLImageElement | null>(null);
 
   const maxTime = simulationData.frames[simulationData.frames.length - 1].time;
 
@@ -43,6 +49,23 @@ export default function SimulationPlayer({
   // Scale factor to convert map coordinates to canvas coordinates
   const scaleX = canvasWidth / mapWidth;
   const scaleY = canvasHeight / mapHeight;
+
+  // Load map image
+  useEffect(() => {
+    if (!mapUrl) {
+      setMapImage(null);
+      return;
+    }
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => setMapImage(img);
+    img.onerror = () => {
+      console.error("Failed to load map image");
+      setMapImage(null);
+    };
+    img.src = mapUrl;
+  }, [mapUrl]);
 
   // Interpolate robot positions between frames
   const interpolateRobots = (time: number): SimulationRobot[] => {
@@ -86,26 +109,58 @@ export default function SimulationPlayer({
     // Clear canvas
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-    // Draw background
-    ctx.fillStyle = "#f8f9fa";
-    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    // Draw map image if loaded, otherwise draw background
+    if (mapImage) {
+      ctx.drawImage(mapImage, 0, 0, ctx.canvas.width, ctx.canvas.height);
+    } else {
+      // Draw background
+      ctx.fillStyle = "#f8f9fa";
+      ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-    // Draw grid
-    ctx.strokeStyle = "#e9ecef";
-    ctx.lineWidth = 1;
-    const gridSize = 50;
+      // Draw grid
+      ctx.strokeStyle = "#e9ecef";
+      ctx.lineWidth = 1;
+      const gridSize = 50;
 
-    for (let i = 0; i < ctx.canvas.width; i += gridSize) {
-      ctx.beginPath();
-      ctx.moveTo(i, 0);
-      ctx.lineTo(i, ctx.canvas.height);
-      ctx.stroke();
+      for (let i = 0; i < ctx.canvas.width; i += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i, ctx.canvas.height);
+        ctx.stroke();
+      }
+      for (let i = 0; i < ctx.canvas.height; i += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, i);
+        ctx.lineTo(ctx.canvas.width, i);
+        ctx.stroke();
+      }
     }
-    for (let i = 0; i < ctx.canvas.height; i += gridSize) {
-      ctx.beginPath();
-      ctx.moveTo(0, i);
-      ctx.lineTo(ctx.canvas.width, i);
-      ctx.stroke();
+
+    // Draw task areas
+    if (taskAreas && taskAreas.length > 0) {
+      taskAreas.forEach((area, index) => {
+        const canvasX = (area.x / mapWidth) * ctx.canvas.width;
+        const canvasY = (area.y / mapHeight) * ctx.canvas.height;
+        const canvasW = (area.width / mapWidth) * ctx.canvas.width;
+        const canvasH = (area.height / mapHeight) * ctx.canvas.height;
+
+        // Fill with semi-transparent color
+        ctx.fillStyle = "rgba(34, 197, 94, 0.2)";
+        ctx.fillRect(canvasX, canvasY, canvasW, canvasH);
+
+        // Border
+        ctx.strokeStyle = "#22c55e";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(canvasX, canvasY, canvasW, canvasH);
+
+        // Label
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 12px sans-serif";
+        ctx.strokeStyle = "#000";
+        ctx.lineWidth = 3;
+        ctx.strokeText(`Task ${index + 1}`, canvasX + 5, canvasY + 18);
+        ctx.fillText(`Task ${index + 1}`, canvasX + 5, canvasY + 18);
+      });
     }
 
     // Draw border
@@ -116,17 +171,28 @@ export default function SimulationPlayer({
     // Get interpolated positions for current time
     const robots = interpolateRobots(time);
 
+    // Color palette for multiple robots (same as legend)
+    const robotColors = [
+      { main: "#3b82f6", light: "#93c5fd", border: "#1e40af" }, // blue
+      { main: "#8b5cf6", light: "#c4b5fd", border: "#5b21b6" }, // purple
+      { main: "#10b981", light: "#6ee7b7", border: "#047857" }, // green
+      { main: "#f59e0b", light: "#fcd34d", border: "#b45309" }, // amber
+      { main: "#ef4444", light: "#fca5a5", border: "#b91c1c" }, // red
+      { main: "#06b6d4", light: "#a5f3fc", border: "#0e7490" }, // cyan
+      { main: "#ec4899", light: "#f9a8d4", border: "#be185d" }, // pink
+      { main: "#84cc16", light: "#bef264", border: "#4d7c0f" }, // lime
+    ];
+
     // Draw each robot
     robots.forEach((robot, index) => {
       const canvasX = robot.x * scaleX;
       const canvasY = robot.y * scaleY;
 
-      // Robot color based on type
-      const color = robot.type === "rover" ? "#3b82f6" : "#8b5cf6";
-      const lightColor = robot.type === "rover" ? "#93c5fd" : "#c4b5fd";
+      // Get unique color for this robot based on index
+      const colors = robotColors[index % robotColors.length];
 
       // Draw trail (previous positions)
-      ctx.strokeStyle = lightColor + "60";
+      ctx.strokeStyle = colors.light + "60";
       ctx.lineWidth = 3;
       ctx.lineCap = "round";
       ctx.beginPath();
@@ -155,7 +221,7 @@ export default function SimulationPlayer({
 
       if (robot.type === "rover") {
         // Draw rover as a rounded rectangle
-        ctx.fillStyle = color;
+        ctx.fillStyle = colors.main;
         ctx.beginPath();
         ctx.roundRect(
           canvasX - robotSize / 2,
@@ -166,17 +232,17 @@ export default function SimulationPlayer({
         );
         ctx.fill();
 
-        ctx.strokeStyle = "#1e40af";
+        ctx.strokeStyle = colors.border;
         ctx.lineWidth = 2;
         ctx.stroke();
       } else {
         // Draw drone as a circle
-        ctx.fillStyle = color;
+        ctx.fillStyle = colors.main;
         ctx.beginPath();
         ctx.arc(canvasX, canvasY, robotSize / 2, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.strokeStyle = "#5b21b6";
+        ctx.strokeStyle = colors.border;
         ctx.lineWidth = 2;
         ctx.stroke();
       }
@@ -242,7 +308,7 @@ export default function SimulationPlayer({
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isPlaying, speed, currentTime, simulationData, mapWidth, mapHeight]);
+  }, [isPlaying, speed, currentTime, simulationData, mapWidth, mapHeight, mapImage, taskAreas]);
 
   // Initial draw
   useEffect(() => {
@@ -289,28 +355,47 @@ export default function SimulationPlayer({
     }
   };
 
-  // Get unique robots for legend
+  // Get unique robots for legend and assign colors
   const uniqueRobots = simulationData.frames[0]?.robots || [];
+
+  // Color palette for multiple robots
+  const robotColors = [
+    { main: "#3b82f6", light: "#93c5fd", border: "#1e40af" }, // blue
+    { main: "#8b5cf6", light: "#c4b5fd", border: "#5b21b6" }, // purple
+    { main: "#10b981", light: "#6ee7b7", border: "#047857" }, // green
+    { main: "#f59e0b", light: "#fcd34d", border: "#b45309" }, // amber
+    { main: "#ef4444", light: "#fca5a5", border: "#b91c1c" }, // red
+    { main: "#06b6d4", light: "#a5f3fc", border: "#0e7490" }, // cyan
+    { main: "#ec4899", light: "#f9a8d4", border: "#be185d" }, // pink
+    { main: "#84cc16", light: "#bef264", border: "#4d7c0f" }, // lime
+  ];
+
+  const getRobotColor = (index: number) => {
+    return robotColors[index % robotColors.length];
+  };
 
   return (
     <Card className="w-full">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>Simulation Playback</span>
-          <div className="flex gap-2">
-            {uniqueRobots.map((robot) => (
-              <Badge
-                key={robot.id}
-                variant="outline"
-                className="text-xs"
-                style={{
-                  borderColor: robot.type === "rover" ? "#3b82f6" : "#8b5cf6",
-                  color: robot.type === "rover" ? "#3b82f6" : "#8b5cf6",
-                }}
-              >
-                {robot.type === "rover" ? "■" : "●"} {robot.name}
-              </Badge>
-            ))}
+          <div className="flex gap-2 flex-wrap">
+            {uniqueRobots.map((robot, index) => {
+              const colors = getRobotColor(index);
+              return (
+                <Badge
+                  key={robot.id}
+                  variant="outline"
+                  className="text-xs"
+                  style={{
+                    borderColor: colors.main,
+                    color: colors.main,
+                  }}
+                >
+                  {robot.type === "rover" ? "■" : "●"} {robot.name}
+                </Badge>
+              );
+            })}
           </div>
         </CardTitle>
       </CardHeader>

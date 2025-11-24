@@ -13,6 +13,7 @@ import { MoreHorizontal } from "lucide-react"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import type { Robot } from "./types"
+import { deleteRobot } from "@/app/robots/actions"
 
 function AttributesPreview({ attributes }: { attributes: Robot['attributes'] }) {
   if (!attributes) return <span className="text-muted-foreground">—</span>
@@ -90,7 +91,7 @@ function EditTypeDialog({ robot }: { robot: Robot }) {
   )
 }
 
-function DeleteRobotButton({ robot }: { robot: Robot }) {
+function DeleteRobotButton({ robot, onRobotDeleted }: { robot: Robot; onRobotDeleted?: () => void }) {
   const [isPending, startTransition] = useTransition()
   return (
     <AlertDialog>
@@ -111,9 +112,13 @@ function DeleteRobotButton({ robot }: { robot: Robot }) {
             onClick={() =>
               startTransition(async () => {
                 try {
-                  // TODO: wire to backend
-                  toast.info("Delete coming soon")
-                } catch {
+                  await deleteRobot(robot.id)
+                  toast.success(`Robot "${robot.name}" deleted successfully`)
+                  if (onRobotDeleted) {
+                    onRobotDeleted()
+                  }
+                } catch (error) {
+                  console.error("Failed to delete robot:", error)
                   toast.error("Failed to delete robot")
                 }
               })
@@ -127,61 +132,63 @@ function DeleteRobotButton({ robot }: { robot: Robot }) {
   )
 }
 
-export const robotColumns: ColumnDef<Robot>[] = [
-  {
-    accessorKey: 'id',
-    header: 'ID',
-    cell: ({ row }) => <span className="font-mono text-xs">{row.original.id}</span>,
-  },
-  {
-    accessorKey: 'name',
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        className="-ml-3"
-        onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-      >
-        Name
-        <ArrowUpDown className="ml-2 h-4 w-4" />
-      </Button>
-    ),
-  },
-  {
-    accessorKey: 'type',
-    header: 'Type',
-    cell: ({ row }) => (
-      <Badge variant={row.original.type === 'rover' ? 'secondary' : 'default'}>
-        {row.original.type}
-      </Badge>
-    ),
-  },
-  {
-    id: 'attributes',
-    header: 'Attributes',
-    cell: ({ row }) => <AttributesPreview attributes={row.original.attributes} />,
-  },
-  {
-    id: 'actions',
-    header: '',
-    cell: ({ row }) => {
-      const robot = row.original
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <EditTypeDialog robot={robot} />
-            <DropdownMenuSeparator />
-            <DeleteRobotButton robot={robot} />
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )
+export function createRobotColumns(onRobotDeleted?: () => void): ColumnDef<Robot>[] {
+  return [
+    {
+      accessorKey: 'id',
+      header: 'ID',
+      cell: ({ row }) => <span className="font-mono text-xs">{row.original.id}</span>,
     },
-  },
-]
+    {
+      accessorKey: 'name',
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          className="-ml-3"
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+        >
+          Name
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+    },
+    {
+      accessorKey: 'type',
+      header: 'Type',
+      cell: ({ row }) => (
+        <Badge variant={row.original.type === 'rover' ? 'secondary' : 'default'}>
+          {row.original.type}
+        </Badge>
+      ),
+    },
+    {
+      id: 'attributes',
+      header: 'Attributes',
+      cell: ({ row }) => <AttributesPreview attributes={row.original.attributes} />,
+    },
+    {
+      id: 'actions',
+      header: '',
+      cell: ({ row }) => {
+        const robot = row.original
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <EditTypeDialog robot={robot} />
+              <DropdownMenuSeparator />
+              <DeleteRobotButton robot={robot} onRobotDeleted={onRobotDeleted} />
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
+    },
+  ]
+}
 
 

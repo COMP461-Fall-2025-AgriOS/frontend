@@ -16,7 +16,7 @@ import { revalidatePath } from "next/cache";
  *
  * @returns Promise<void> - Resolves when the map is successfully created and cache is revalidated
  */
-export async function addMap({ id, name, width, height }: Map) {
+export async function addMap({ id, name, width, height, mapUrl }: Map) {
   const res = await fetch(
     `${process.env.BACKEND_URL ?? ""}/map/${id}`,
     {
@@ -24,7 +24,7 @@ export async function addMap({ id, name, width, height }: Map) {
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ name: name, width: width, height: height }),
+      body: JSON.stringify({ name, width, height, mapUrl }),
     }
   );
   if (!res.ok) {

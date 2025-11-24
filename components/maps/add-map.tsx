@@ -117,10 +117,14 @@ export default function AddMap({
     const metersPerPixelAtZoom0 = 40075017 / 256; // Earth's circumference in meters / tile size
     const metersPerPixel = metersPerPixelAtZoom0 / Math.pow(2, data.zoom);
 
-    const calculatedWidth = Math.round(data.dimensions.width * metersPerPixel);
-    const calculatedHeight = Math.round(
-      data.dimensions.height * metersPerPixel
-    );
+    const widthInMeters = Math.round(data.dimensions.width * metersPerPixel);
+    const heightInMeters = Math.round(data.dimensions.height * metersPerPixel);
+
+    // Convert meters to grid cells (each cell represents ~10 meters)
+    // This keeps grid sizes reasonable (e.g., 500x500 pixels -> ~4280m -> 428 grid cells)
+    const METERS_PER_GRID_CELL = 10;
+    const calculatedWidth = Math.max(1, Math.round(widthInMeters / METERS_PER_GRID_CELL));
+    const calculatedHeight = Math.max(1, Math.round(heightInMeters / METERS_PER_GRID_CELL));
 
     setWidth(calculatedWidth.toString());
     setHeight(calculatedHeight.toString());
@@ -185,7 +189,7 @@ export default function AddMap({
         </Button>
         {width && height && (
           <p className="text-xs text-muted-foreground">
-            Dimensions: {width}m × {height}m
+            Grid size: {width} × {height} cells (~10m per cell)
           </p>
         )}
       </div>

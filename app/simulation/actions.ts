@@ -134,34 +134,33 @@ export async function fetchSimulationData(): Promise<SimulationData | null> {
       return null;
     }
 
-    // Parse ALL PLANNER_START events to get info about all robots
-    const plannerStartLines = lines.filter(line => line.includes('PLANNER_START'));
-    if (plannerStartLines.length === 0) {
-      return null;
-    }
-
-    // Build robot info map
+    // Build robot info map - only use FIRST PLANNER_START for each robot (initial position)
     const robotInfoMap: Map<string, { name: string; type: "rover" | "drone"; startX: number; startY: number }> = new Map();
     let mapWidth = 0;
     let mapHeight = 0;
 
-    for (const line of plannerStartLines) {
-      const robotIdMatch = line.match(/robotId="([^"]*)"/);
-      const robotNameMatch = line.match(/robotName="([^"]*)"/);
-      const startMatch = line.match(/start=\((\d+),(\d+)\)/);
-      const mapMatch = line.match(/map=\((\d+)x(\d+)\)/);
+    for (const line of lines) {
+      if (line.includes('PLANNER_START')) {
+        const robotIdMatch = line.match(/robotId="([^"]*)"/);
+        const robotNameMatch = line.match(/robotName="([^"]*)"/);
+        const startMatch = line.match(/start=\((\d+),(\d+)\)/);
+        const mapMatch = line.match(/map=\((\d+)x(\d+)\)/);
 
-      if (robotIdMatch && robotNameMatch && startMatch && mapMatch) {
-        const robotId = robotIdMatch[1];
-        const robotName = robotNameMatch[1];
-        const startX = parseInt(startMatch[1]);
-        const startY = parseInt(startMatch[2]);
-        mapWidth = parseInt(mapMatch[1]);
-        mapHeight = parseInt(mapMatch[2]);
+        if (robotIdMatch && robotNameMatch && startMatch && mapMatch) {
+          const robotId = robotIdMatch[1];
+          const robotName = robotNameMatch[1];
+          const startX = parseInt(startMatch[1]);
+          const startY = parseInt(startMatch[2]);
+          mapWidth = parseInt(mapMatch[1]);
+          mapHeight = parseInt(mapMatch[2]);
 
-        const robotType = robotName.toLowerCase().includes("drone") ? "drone" : "rover";
+          const robotType = robotName.toLowerCase().includes("drone") ? "drone" : "rover";
 
-        robotInfoMap.set(robotId, { name: robotName, type: robotType, startX, startY });
+          // Only set if not already present (use first PLANNER_START for initial position)
+          if (!robotInfoMap.has(robotId)) {
+            robotInfoMap.set(robotId, { name: robotName, type: robotType, startX, startY });
+          }
+        }
       }
     }
 
@@ -169,14 +168,42 @@ export async function fetchSimulationData(): Promise<SimulationData | null> {
       return null;
     }
 
-    // Parse MOVE_EXECUTED events grouped by robot
+    // Parse events in order to build paths with task dwell times
+    // When a robot finishes a task (reaches destination), add dwell frames before next task
     const robotPaths: Map<string, Array<{ x: number; y: number }>> = new Map();
+    const TASK_DWELL_FRAMES = 15; // Number of frames to wait at each task location
 
     for (const [robotId, info] of robotInfoMap.entries()) {
       robotPaths.set(robotId, [{ x: info.startX, y: info.startY }]);
     }
 
+    // Track which robots we've seen PLANNER_START for (to detect second+ tasks)
+    const robotTaskCount: Map<string, number> = new Map();
+
     for (const line of lines) {
+      // When we see a new PLANNER_START for a robot that already has moves,
+      // add dwell frames at the current position (end of previous task)
+      if (line.includes('PLANNER_START')) {
+        const robotIdMatch = line.match(/robotId="([^"]*)"/);
+        if (robotIdMatch) {
+          const robotId = robotIdMatch[1];
+          const currentCount = robotTaskCount.get(robotId) || 0;
+          robotTaskCount.set(robotId, currentCount + 1);
+
+          // If this is the 2nd+ task for this robot, add dwell frames
+          if (currentCount > 0 && robotPaths.has(robotId)) {
+            const path = robotPaths.get(robotId)!;
+            if (path.length > 0) {
+              const lastPos = path[path.length - 1];
+              // Add dwell frames at the task completion location
+              for (let i = 0; i < TASK_DWELL_FRAMES; i++) {
+                path.push({ x: lastPos.x, y: lastPos.y });
+              }
+            }
+          }
+        }
+      }
+
       if (line.includes('MOVE_EXECUTED')) {
         const robotIdMatch = line.match(/robotId="([^"]*)"/);
         const xMatch = line.match(/x=(\d+)/);
@@ -190,6 +217,16 @@ export async function fetchSimulationData(): Promise<SimulationData | null> {
           if (robotPaths.has(robotId)) {
             robotPaths.get(robotId)!.push({ x, y });
           }
+        }
+      }
+    }
+
+    // Add final dwell frames at the end of each robot's path (completing last task)
+    for (const path of robotPaths.values()) {
+      if (path.length > 0) {
+        const lastPos = path[path.length - 1];
+        for (let i = 0; i < TASK_DWELL_FRAMES; i++) {
+          path.push({ x: lastPos.x, y: lastPos.y });
         }
       }
     }
@@ -244,35 +281,34 @@ export async function fetchSimulationData(): Promise<SimulationData | null> {
 }
 
 function parseJSONEvents(events: any[]): SimulationData | null {
-  // Find ALL PLANNER_START events
-  const plannerStarts = events.filter(e => e.type === 'PLANNER_START');
-  if (plannerStarts.length === 0) {
-    return null;
-  }
-
-  // Build robot info map
+  // Build robot info map - only use FIRST PLANNER_START for each robot (initial position)
   const robotInfoMap: Map<string, { name: string; type: "rover" | "drone"; startX: number; startY: number }> = new Map();
   let mapWidth = 0;
   let mapHeight = 0;
 
-  for (const plannerStart of plannerStarts) {
-    const data = plannerStart.data;
-    const robotIdMatch = data.match(/robotId="([^"]*)"/);
-    const robotNameMatch = data.match(/robotName="([^"]*)"/);
-    const startMatch = data.match(/start=\((\d+),(\d+)\)/);
-    const mapMatch = data.match(/map=\((\d+)x(\d+)\)/);
+  for (const event of events) {
+    if (event.type === 'PLANNER_START') {
+      const data = event.data;
+      const robotIdMatch = data.match(/robotId="([^"]*)"/);
+      const robotNameMatch = data.match(/robotName="([^"]*)"/);
+      const startMatch = data.match(/start=\((\d+),(\d+)\)/);
+      const mapMatch = data.match(/map=\((\d+)x(\d+)\)/);
 
-    if (robotIdMatch && robotNameMatch && startMatch && mapMatch) {
-      const robotId = robotIdMatch[1];
-      const robotName = robotNameMatch[1];
-      const startX = parseInt(startMatch[1]);
-      const startY = parseInt(startMatch[2]);
-      mapWidth = parseInt(mapMatch[1]);
-      mapHeight = parseInt(mapMatch[2]);
+      if (robotIdMatch && robotNameMatch && startMatch && mapMatch) {
+        const robotId = robotIdMatch[1];
+        const robotName = robotNameMatch[1];
+        const startX = parseInt(startMatch[1]);
+        const startY = parseInt(startMatch[2]);
+        mapWidth = parseInt(mapMatch[1]);
+        mapHeight = parseInt(mapMatch[2]);
 
-      const robotType = robotName.toLowerCase().includes("drone") ? "drone" : "rover";
+        const robotType = robotName.toLowerCase().includes("drone") ? "drone" : "rover";
 
-      robotInfoMap.set(robotId, { name: robotName, type: robotType, startX, startY });
+        // Only set if not already present (use first PLANNER_START for initial position)
+        if (!robotInfoMap.has(robotId)) {
+          robotInfoMap.set(robotId, { name: robotName, type: robotType, startX, startY });
+        }
+      }
     }
   }
 
@@ -280,14 +316,41 @@ function parseJSONEvents(events: any[]): SimulationData | null {
     return null;
   }
 
-  // Parse MOVE_EXECUTED events grouped by robot
+  // Parse events in order to build paths with task dwell times
   const robotPaths: Map<string, Array<{ x: number; y: number }>> = new Map();
+  const TASK_DWELL_FRAMES = 15; // Number of frames to wait at each task location
 
   for (const [robotId, info] of robotInfoMap.entries()) {
     robotPaths.set(robotId, [{ x: info.startX, y: info.startY }]);
   }
 
+  // Track which robots we've seen PLANNER_START for (to detect second+ tasks)
+  const robotTaskCount: Map<string, number> = new Map();
+
   for (const event of events) {
+    // When we see a new PLANNER_START for a robot that already has moves,
+    // add dwell frames at the current position (end of previous task)
+    if (event.type === 'PLANNER_START') {
+      const robotIdMatch = event.data.match(/robotId="([^"]*)"/);
+      if (robotIdMatch) {
+        const robotId = robotIdMatch[1];
+        const currentCount = robotTaskCount.get(robotId) || 0;
+        robotTaskCount.set(robotId, currentCount + 1);
+
+        // If this is the 2nd+ task for this robot, add dwell frames
+        if (currentCount > 0 && robotPaths.has(robotId)) {
+          const path = robotPaths.get(robotId)!;
+          if (path.length > 0) {
+            const lastPos = path[path.length - 1];
+            // Add dwell frames at the task completion location
+            for (let i = 0; i < TASK_DWELL_FRAMES; i++) {
+              path.push({ x: lastPos.x, y: lastPos.y });
+            }
+          }
+        }
+      }
+    }
+
     if (event.type === 'MOVE_EXECUTED') {
       const robotIdMatch = event.data.match(/robotId="([^"]*)"/);
       const xMatch = event.data.match(/x=(\d+)/);
@@ -301,6 +364,16 @@ function parseJSONEvents(events: any[]): SimulationData | null {
         if (robotPaths.has(robotId)) {
           robotPaths.get(robotId)!.push({ x, y });
         }
+      }
+    }
+  }
+
+  // Add final dwell frames at the end of each robot's path (completing last task)
+  for (const path of robotPaths.values()) {
+    if (path.length > 0) {
+      const lastPos = path[path.length - 1];
+      for (let i = 0; i < TASK_DWELL_FRAMES; i++) {
+        path.push({ x: lastPos.x, y: lastPos.y });
       }
     }
   }

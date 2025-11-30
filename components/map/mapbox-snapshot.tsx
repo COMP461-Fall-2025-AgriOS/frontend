@@ -440,10 +440,7 @@ export default function MapSnapshot({
             {isCapturing ? "Capturing..." : "Capture Snapshot"}
           </Button>
 
-          <div className="text-sm text-muted-foreground ml-auto">
-            Center: {viewState.latitude.toFixed(4)},{" "}
-            {viewState.longitude.toFixed(4)} | Zoom: {viewState.zoom.toFixed(2)}
-          </div>
+          
         </div>
       </div>
 

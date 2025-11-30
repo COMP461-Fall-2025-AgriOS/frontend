@@ -14,11 +14,9 @@ import Image from "next/image";
 
 const items = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
-  { title: "Schedule", url: "#", icon: Calendar },
   { title: "Simulation", url: "/simulation", icon: PlaySquare },
   { title: "Task Simulation", url: "/simulation-new", icon: Layers },
   { title: "Plugins", url: "/plugins", icon: Puzzle },
-  { title: "Settings", url: "#", icon: Settings },
 ];
 
 export function AppSidebar() {

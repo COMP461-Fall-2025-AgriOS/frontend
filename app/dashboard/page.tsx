@@ -131,6 +131,16 @@ export default function Home() {
   return (
     <div className="px-4 py-6 md:px-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Map adder */}
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="text-lg">Add map</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AddMap onSubmit={handleAddMap} isLoading={isAddingMap} />
+          </CardContent>
+        </Card>
+
         {/* Robot adder */}
         <Card className="w-full">
           <CardHeader>
@@ -144,16 +154,6 @@ export default function Home() {
               onSubmit={handleAddRobots}
               isLoading={isAddingRobots}
             />
-          </CardContent>
-        </Card>
-
-        {/* Map adder */}
-        <Card className="w-full">
-          <CardHeader>
-            <CardTitle className="text-lg">Add map</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <AddMap onSubmit={handleAddMap} isLoading={isAddingMap} />
           </CardContent>
         </Card>
 

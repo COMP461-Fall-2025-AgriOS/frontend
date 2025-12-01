@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Info, RefreshCw, Play, Zap } from "lucide-react";
 import { toast } from "sonner";
-import { getMaps } from "@/app/maps/actions";
+import { getMaps, getMapGrid } from "@/app/maps/actions";
 import { getRobots, resetAllRobotPositions } from "@/app/robots/actions";
 import { getEnabledPlugins } from "@/app/plugins/actions";
 import { createMultipleTasks, assignTasks } from "@/app/tasks/actions";
@@ -39,6 +39,7 @@ export default function SimulationNewPage() {
   const [isAssigning, setIsAssigning] = useState(false);
   const [simulationData, setSimulationData] = useState<SimulationData | null>(null);
   const [algorithm, setAlgorithm] = useState<"greedy" | "optimal" | "balanced">("optimal");
+  const [mapGrid, setMapGrid] = useState<number[][] | null>(null);
 
   const checkBackendStatus = async () => {
     try {
@@ -81,8 +82,15 @@ export default function SimulationNewPage() {
       setSelectedMap(map || null);
       setTaskAreas([]); // Reset task areas when map changes
       setSelectedAreaIndex(null);
+      setMapGrid(null); // Reset grid when map changes
+      
+      // Fetch the grid for the selected map
+      getMapGrid(selectedMapId).then((grid) => {
+        setMapGrid(grid);
+      });
     } else {
       setSelectedMap(null);
+      setMapGrid(null);
     }
   }, [selectedMapId, maps]);
 
@@ -112,8 +120,8 @@ export default function SimulationNewPage() {
     setSimulationData(null);
 
     try {
-      // Step 0: Reset all robot positions to origin
-      await resetAllRobotPositions(selectedMapId);
+      // Step 0: Reset all robot positions to an accessible cell
+      await resetAllRobotPositions(selectedMapId, mapGrid ?? undefined);
 
       // Step 1: Clear simulation log
       await clearSimulationLog();
@@ -234,6 +242,7 @@ export default function SimulationNewPage() {
                   onTaskAreasChange={setTaskAreas}
                   selectedAreaIndex={selectedAreaIndex}
                   onSelectArea={setSelectedAreaIndex}
+                  grid={mapGrid ?? undefined}
                 />
               )}
 
@@ -335,6 +344,7 @@ export default function SimulationNewPage() {
               mapHeight={selectedMap.height}
               mapUrl={selectedMap.mapUrl}
               taskAreas={taskAreas}
+              grid={mapGrid ?? undefined}
             />
           </CardContent>
         </Card>

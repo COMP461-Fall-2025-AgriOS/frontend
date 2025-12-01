@@ -151,13 +151,13 @@ export async function updateRobotType(id: string, type: "rover" | "drone") {
   revalidatePath("/robots");
 }
 
-export async function resetRobotPosition(id: string) {
+export async function resetRobotPosition(id: string, position: [number, number] = [0, 0]) {
   const res = await fetch(
     `${process.env.BACKEND_URL ?? ""}/robots/${id}`,
     {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ position: [0, 0] }),
+      body: JSON.stringify({ position }),
     }
   );
   if (!res.ok) {
@@ -165,11 +165,39 @@ export async function resetRobotPosition(id: string) {
   }
 }
 
-export async function resetAllRobotPositions(mapId: string) {
+/**
+ * Find an accessible starting position in the grid.
+ * Scans from top-left to find the first cell with value 0 (accessible).
+ */
+function findAccessiblePosition(grid: number[][]): [number, number] {
+  if (!grid || grid.length === 0) return [0, 0];
+  
+  const height = grid.length;
+  const width = grid[0]?.length || 0;
+  
+  // First, try to find an accessible cell near the top-left corner
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (grid[y][x] === 0) {
+        return [x, y];
+      }
+    }
+  }
+  
+  // If no accessible cell found, return center as fallback
+  return [Math.floor(width / 2), Math.floor(height / 2)];
+}
+
+export async function resetAllRobotPositions(mapId: string, grid?: number[][]) {
   const robots = await getRobots();
   const mapRobots = robots.filter(r => r.mapId === mapId);
 
+  // Find an accessible starting position
+  const startPosition: [number, number] = grid 
+    ? findAccessiblePosition(grid) 
+    : [0, 0];
+
   await Promise.all(
-    mapRobots.map(robot => resetRobotPosition(robot.id))
+    mapRobots.map(robot => resetRobotPosition(robot.id, startPosition))
   );
 }

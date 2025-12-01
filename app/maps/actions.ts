@@ -75,3 +75,31 @@ export async function deleteMap(id: string) {
   }
   revalidatePath("/map");
 }
+
+/**
+ * Retrieves the occupancy grid for a specific map.
+ * The grid contains 0 for accessible cells and 1 for obstacles/inaccessible cells.
+ * 
+ * @param mapId - The unique identifier of the map
+ * 
+ * @returns Promise<number[][] | null> - A 2D array representing the grid, or null if not found
+ */
+export async function getMapGrid(mapId: string): Promise<number[][] | null> {
+  try {
+    const res = await fetch(
+      `${process.env.BACKEND_URL ?? "http://localhost:8080"}/map/${mapId}/grid`,
+      { cache: "no-store" }
+    );
+
+    if (!res.ok) {
+      console.error("Failed to fetch map grid");
+      return null;
+    }
+
+    const data = await res.json();
+    return data.grid || null;
+  } catch (error) {
+    console.error("Error fetching map grid:", error);
+    return null;
+  }
+}

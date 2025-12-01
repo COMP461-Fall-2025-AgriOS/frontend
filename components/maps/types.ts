@@ -4,4 +4,5 @@ export interface Map {
     width: number;
     height: number;
     mapUrl: string;
+    grid?: number[][]; // Occupancy grid: 0 = accessible, 1 = obstacle/inaccessible
 }

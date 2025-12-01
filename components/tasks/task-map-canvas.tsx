@@ -15,6 +15,7 @@ interface TaskMapCanvasProps {
   onTaskAreasChange: (areas: TaskArea[]) => void;
   selectedAreaIndex: number | null;
   onSelectArea: (index: number | null) => void;
+  grid?: number[][]; // Occupancy grid: 0 = accessible, 1 = obstacle
 }
 
 export default function TaskMapCanvas({
@@ -24,6 +25,7 @@ export default function TaskMapCanvas({
   onTaskAreasChange,
   selectedAreaIndex,
   onSelectArea,
+  grid,
 }: TaskMapCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -102,7 +104,7 @@ export default function TaskMapCanvas({
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 
-    // Draw grid (semi-transparent)
+    // Draw grid lines (semi-transparent)
     ctx.strokeStyle = "rgba(229, 231, 235, 0.5)";
     ctx.lineWidth = 0.5;
     for (let x = 0; x <= CANVAS_WIDTH; x += GRID_SIZE) {
@@ -116,6 +118,28 @@ export default function TaskMapCanvas({
       ctx.moveTo(0, y);
       ctx.lineTo(CANVAS_WIDTH, y);
       ctx.stroke();
+    }
+
+    // Draw obstacle grid overlay (from segmentation)
+    if (grid && grid.length > 0) {
+      const gridHeight = grid.length;
+      const gridWidth = grid[0]?.length || 0;
+      
+      if (gridWidth > 0) {
+        const cellWidth = CANVAS_WIDTH / gridWidth;
+        const cellHeight = CANVAS_HEIGHT / gridHeight;
+        
+        ctx.fillStyle = "rgba(239, 68, 68, 0.4)"; // Semi-transparent red for obstacles
+        
+        for (let y = 0; y < gridHeight; y++) {
+          for (let x = 0; x < gridWidth; x++) {
+            if (grid[y][x] === 1) {
+              // Cell is an obstacle/inaccessible
+              ctx.fillRect(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
+            }
+          }
+        }
+      }
     }
 
     // Draw robots
@@ -191,7 +215,7 @@ export default function TaskMapCanvas({
       ctx.lineWidth = 2;
       ctx.strokeRect(currentRect.x, currentRect.y, currentRect.width, currentRect.height);
     }
-  }, [taskAreas, currentRect, selectedAreaIndex, mapWidth, mapHeight, mapImage, robots, map]);
+  }, [taskAreas, currentRect, selectedAreaIndex, mapWidth, mapHeight, mapImage, robots, map, grid]);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;

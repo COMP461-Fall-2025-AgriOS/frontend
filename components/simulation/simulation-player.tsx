@@ -14,6 +14,7 @@ interface SimulationPlayerProps {
   mapHeight: number;
   mapUrl?: string;
   taskAreas?: TaskArea[];
+  grid?: number[][]; // Occupancy grid: 0 = accessible, 1 = obstacle
 }
 
 export default function SimulationPlayer({
@@ -22,6 +23,7 @@ export default function SimulationPlayer({
   mapHeight,
   mapUrl,
   taskAreas = [],
+  grid,
 }: SimulationPlayerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -117,7 +119,7 @@ export default function SimulationPlayer({
       ctx.fillStyle = "#f8f9fa";
       ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-      // Draw grid
+      // Draw grid lines
       ctx.strokeStyle = "#e9ecef";
       ctx.lineWidth = 1;
       const gridSize = 50;
@@ -133,6 +135,28 @@ export default function SimulationPlayer({
         ctx.moveTo(0, i);
         ctx.lineTo(ctx.canvas.width, i);
         ctx.stroke();
+      }
+    }
+
+    // Draw obstacle grid overlay (from segmentation)
+    if (grid && grid.length > 0) {
+      const gridHeight = grid.length;
+      const gridWidth = grid[0]?.length || 0;
+      
+      if (gridWidth > 0) {
+        const cellWidth = ctx.canvas.width / gridWidth;
+        const cellHeight = ctx.canvas.height / gridHeight;
+        
+        ctx.fillStyle = "rgba(239, 68, 68, 0.4)"; // Semi-transparent red for obstacles
+        
+        for (let y = 0; y < gridHeight; y++) {
+          for (let x = 0; x < gridWidth; x++) {
+            if (grid[y][x] === 1) {
+              // Cell is an obstacle/inaccessible
+              ctx.fillRect(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
+            }
+          }
+        }
       }
     }
 
@@ -308,7 +332,7 @@ export default function SimulationPlayer({
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isPlaying, speed, currentTime, simulationData, mapWidth, mapHeight, mapImage, taskAreas]);
+  }, [isPlaying, speed, currentTime, simulationData, mapWidth, mapHeight, mapImage, taskAreas, grid]);
 
   // Initial draw
   useEffect(() => {
